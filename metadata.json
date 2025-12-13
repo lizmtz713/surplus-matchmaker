@@ -1,0 +1,5 @@
+{
+  "name": "SurplusMatchmaker",
+  "description": "SurplusMatchmaker routes surplus industrial items to the ideal buyer based on inventory analysis and buyer preferences.",
+  "requestFramePermissions": []
+}
