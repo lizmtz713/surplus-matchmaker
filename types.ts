@@ -10,6 +10,7 @@ export interface Buyer {
   brand?: string;
   contact?: string;
   featured?: boolean; // New flag for premium/paid buyers
+  website?: string;
 }
 
 export interface PricePoint {

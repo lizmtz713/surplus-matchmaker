@@ -22,15 +22,19 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 
 // Initialize inside functions to avoid crash on module load if key is missing
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY is missing. Please set it in your environment variables.");
+  // Check for the API key in the environment variables
+  // process.env.API_KEY is replaced by Vite during build
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey.length === 0 || apiKey === 'undefined') {
+    throw new Error("Critical Error: API_KEY is missing. Please add 'API_KEY' to your environment variables or .env file.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey: apiKey });
 };
 
 // Step 1: Perform Web Research (Text Output)
-async function performMarketResearch(description: string, location: string): Promise<{ text: string; sources: string[] }> {
-  if (!description) return { text: "No description provided for research.", sources: [] };
+async function performMarketResearch(description: string, location: string, referenceUrl?: string): Promise<{ text: string; sources: string[] }> {
+  if (!description && !referenceUrl) return { text: "No description or URL provided for research.", sources: [] };
 
   const researchPrompt = `
      You are an expert industrial procurement specialist.
@@ -38,6 +42,7 @@ async function performMarketResearch(description: string, location: string): Pro
     **OBJECTIVE 1: BUYER FINDING**
     Conduct deep web research to find 15 high-potential active commercial buyers, dealers, or liquidation companies that would buy this specific item:
     "${description}"
+    ${referenceUrl ? `\nAnalyze the specific item listing at this URL for accurate identification: ${referenceUrl}` : ''}
     
     Search Context:
     - Location: ${location || "United States (National)"}
@@ -48,7 +53,7 @@ async function performMarketResearch(description: string, location: string): Pro
     2. Full Street Address (City, State, Zip)
     3. **Phone Number** (Main line or purchasing dept)
     4. **Email Address** (Sales, Info, or Purchasing)
-    5. Website URL
+    5. **Website URL** (Strict Requirement: Find the 'Contact Us' or Home page)
 
     **OBJECTIVE 2: MARKET VALUE & COMPARABLES**
     - Identify the specific Make and Model of the item if possible from the description.
@@ -61,7 +66,6 @@ async function performMarketResearch(description: string, location: string): Pro
   `;
 
   try {
-    // FIXED: Use process.env.API_KEY instead of import.meta.env.VITE_API_KEY to ensure research works
     const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -69,10 +73,6 @@ async function performMarketResearch(description: string, location: string): Pro
       config: {
         // Enable both Google Search and Google Maps for maximum buyer discovery
         tools: [{ googleSearch: {} }, { googleMaps: {} }],
-        toolConfig: {
-           // We can't easily get user's lat/long here without browser permission, 
-           // so we rely on the text query "Location" variable.
-        }
       },
     });
 
@@ -90,10 +90,6 @@ async function performMarketResearch(description: string, location: string): Pro
         if (chunk.maps?.uri) {
             extractedSources.push(chunk.maps.uri);
         }
-        // Handle potential place snippets for address accuracy
-        if (chunk.maps?.placeAnswerSources?.reviewSnippets) {
-             // We don't need snippets in the source list, but the model sees them in context.
-        }
       });
       
       // Deduplicate
@@ -110,6 +106,7 @@ async function performMarketResearch(description: string, location: string): Pro
 
   } catch (error) {
     console.warn("Research phase failed:", error);
+    // Return default empty result so the process can continue to Phase 2 even if research fails
     return { text: "Research unavailable (Internal data only).", sources: [] };
   }
 }
@@ -131,11 +128,12 @@ export const matchItemToBuyer = async (
     pickupDate: string;
     pickupContact: string;
     loadingHours: string;
-  }
+  },
+  referenceUrl: string
 ): Promise<MatchResult> => {
   
   // 1. Run Research First
-  const { text: researchResults, sources: researchSources } = await performMarketResearch(description, logistics.origin);
+  const { text: researchResults, sources: researchSources } = await performMarketResearch(description, logistics.origin, referenceUrl);
 
   // 2. Prepare Context for Synthesis
   // IMPORTANT: Send the FULL buyers list (do not slice) to ensure we find the best match from the entire database.
@@ -191,7 +189,7 @@ export const matchItemToBuyer = async (
     - **Source:** STRICTLY "LIVE WEB RESEARCH RESULTS".
     - **Goal:** Find 10 NEW buyers from the web that are NOT in the internal list.
     - **Details:** MUST include Phone, Email, Address from research.
-    - **URLs:** If the research provides a Google Maps URI or Website URL, include it.
+    - **URLs:** If the research provides a Google Maps URI or Website URL, include it in the 'website' or 'googleMapsUri' fields.
     
     **Part B: INTERNAL NETWORK MATCHES (Populate "internalBuyerMatches")**
     - **Source:** STRICTLY the "INTERNAL BUYER NETWORK" JSON provided above.
@@ -271,12 +269,18 @@ export const matchItemToBuyer = async (
     }
   }
 
-  if (description) {
+  // Combine Description and URL for the main text part
+  let combinedDescription = description || "";
+  if (referenceUrl) {
+    combinedDescription += `\n\n[REFERENCE URL TO ANALYZE]: ${referenceUrl}`;
+  }
+
+  if (combinedDescription) {
     parts.push({
-      text: `Item/Inventory Description: ${description}`,
+      text: `Item/Inventory Description: ${combinedDescription}`,
     });
   } else if (!imageFiles || imageFiles.length === 0) {
-     throw new Error("Please provide a description or at least one image.");
+     throw new Error("Please provide a description, URL, or at least one image.");
   }
 
   try {
@@ -308,9 +312,10 @@ export const matchItemToBuyer = async (
     
     return parsedResult;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error("Failed to analyze item. Please check your API Key and try again.");
+    const errorMessage = error.message || "Failed to analyze item.";
+    throw new Error(errorMessage);
   }
 };
 

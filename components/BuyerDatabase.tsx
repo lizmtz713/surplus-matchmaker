@@ -34,6 +34,7 @@ export const BuyerDatabase: React.FC<BuyerDatabaseProps> = ({ buyers, onUpdateBu
       condition: '',
       brand: '',
       contact: '',
+      website: '', // New Field
       featured: false
     });
     setIsEditing(false);
@@ -250,7 +251,7 @@ Please review and add us to the network.`;
               const displayAddress = buyer.matchData?.address || buyer.address || buyer.location || "Location not listed";
               const displayPhone = buyer.matchData?.phone; // Only from match
               const displayEmail = buyer.matchData?.email; // Only from match
-              const displayWebsite = buyer.matchData?.website; // Only from match
+              const displayWebsite = buyer.matchData?.website || buyer.website; // From match OR database
               const rawContact = buyer.contact; // Fallback string from database
 
               return (
@@ -327,6 +328,16 @@ Please review and add us to the network.`;
 
                     {/* Contact Details Grid */}
                     <div className="pl-8 pt-3 mt-1 border-t border-slate-700/50 flex flex-col gap-1.5 text-xs">
+                         {/* Website ALWAYS shows if available */}
+                         {displayWebsite && (
+                            <div className="flex items-center gap-2 text-slate-300">
+                                <Globe className="w-3 h-3 text-slate-500" /> 
+                                <a href={displayWebsite.startsWith('http') ? displayWebsite : `https://${displayWebsite}`} target="_blank" rel="noreferrer" className="hover:text-blue-400 truncate text-blue-400/80">
+                                   {displayWebsite.replace(/^https?:\/\/(www\.)?/, '')}
+                                </a>
+                            </div>
+                         )}
+
                         {/* Dynamic Contact Display */}
                         {buyer.isMatch ? (
                             // Matched Buyer: Show Enriched Data Fields
@@ -341,14 +352,6 @@ Please review and add us to the network.`;
                                     <div className="flex items-center gap-2 text-slate-300">
                                         <Mail className="w-3 h-3 text-slate-500" /> 
                                         <span className="hover:text-white select-all">{displayEmail}</span>
-                                    </div>
-                                )}
-                                {displayWebsite && (
-                                    <div className="flex items-center gap-2 text-slate-300">
-                                        <Globe className="w-3 h-3 text-slate-500" /> 
-                                        <a href={displayWebsite} target="_blank" rel="noreferrer" className="hover:text-blue-400 truncate">
-                                           {displayWebsite.replace(/^https?:\/\/(www\.)?/, '')}
-                                        </a>
                                     </div>
                                 )}
                                 {/* Fallback if structured data missing but raw contact exists */}
@@ -368,7 +371,7 @@ Please review and add us to the network.`;
                                       <span className="select-all leading-snug">{rawContact}</span>
                                    </div>
                                ) : (
-                                   <span className="text-slate-600 italic text-[10px]">No direct contact info listed</span>
+                                   <span className="text-slate-600 italic text-[10px]"></span>
                                )}
                             </div>
                         )}
@@ -418,7 +421,7 @@ Please review and add us to the network.`;
                </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                <div>
                  <label className="block text-sm font-medium text-slate-400 mb-1">Company / Buyer Name *</label>
                  <input 
@@ -443,6 +446,21 @@ Please review and add us to the network.`;
                    required
                  />
                </div>
+               
+               {/* Website URL Field */}
+               <div>
+                 <label className="block text-sm font-medium text-slate-400 mb-1 flex items-center gap-2">
+                    <Globe className="w-3 h-3" /> Website URL
+                 </label>
+                 <input 
+                   type="text" 
+                   name="website"
+                   value={currentBuyer.website || ''} 
+                   onChange={handleChange}
+                   placeholder="www.buyerwebsite.com"
+                   className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                 />
+               </div>
 
                <div>
                  <label className="block text-sm font-medium text-slate-400 mb-1">Contact Details</label>
@@ -451,7 +469,7 @@ Please review and add us to the network.`;
                    name="contact"
                    value={currentBuyer.contact || ''} 
                    onChange={handleChange}
-                   placeholder="Phone, Email, Full Address"
+                   placeholder="Phone, Email, Contact Person"
                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                  />
                </div>
@@ -501,20 +519,6 @@ Please review and add us to the network.`;
                      value={currentBuyer.brand || ''} 
                      onChange={handleChange}
                      placeholder="e.g. Toyota, Cat"
-                     className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                   />
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-sm font-medium text-slate-400 mb-1">Condition</label>
-                   <input 
-                     type="text" 
-                     name="condition"
-                     value={currentBuyer.condition || ''} 
-                     onChange={handleChange}
-                     placeholder="e.g. Scrap, New"
                      className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                    />
                  </div>

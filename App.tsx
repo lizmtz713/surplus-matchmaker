@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database, Map } from 'lucide-react';
+import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database, Map, AlertTriangle } from 'lucide-react';
 import { BuyerDatabase } from './components/BuyerDatabase';
 import { InputForm } from './components/InputForm';
 import { ResultCard } from './components/ResultCard';
@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   
   // Persistence Logic for Buyers
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
@@ -31,6 +32,15 @@ const App: React.FC = () => {
       return INITIAL_BUYERS;
     }
   });
+
+  // Check for API Key on mount
+  useEffect(() => {
+    const key = process.env.API_KEY;
+    // Check if key is empty, undefined, or still has the default placeholder
+    if (!key || key.includes("YOUR_ACTUAL_API_KEY") || key.includes("YOUR_REAL_KEY")) {
+      setApiKeyMissing(true);
+    }
+  }, []);
 
   // Save buyers on change
   useEffect(() => {
@@ -102,14 +112,20 @@ const App: React.FC = () => {
       pickupDate: string;
       pickupContact: string;
       loadingHours: string;
-    }
+    },
+    referenceUrl: string
   ) => {
+    if (apiKeyMissing) {
+      setError("Cannot proceed: API Key is missing. Please configure your environment variables.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const matchData = await matchItemToBuyer(description, condition, imageFiles, buyers, logistics);
+      const matchData = await matchItemToBuyer(description, condition, imageFiles, buyers, logistics, referenceUrl);
       setResult(matchData);
     } catch (err: any) {
       console.error(err);
@@ -127,7 +143,15 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8">
-      <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row items-center justify-between border-b border-slate-700 pb-6 gap-4">
+      {/* API Key Warning Banner */}
+      {apiKeyMissing && (
+        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white p-3 text-center z-50 flex items-center justify-center gap-2 font-bold shadow-lg">
+          <AlertTriangle className="w-5 h-5" />
+          <span>SETUP REQUIRED: API Key Missing. Please add API_KEY to your .env file (Local) or Project Settings (Netlify).</span>
+        </div>
+      )}
+
+      <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row items-center justify-between border-b border-slate-700 pb-6 gap-4 pt-6">
         <div className="flex items-center gap-3">
           <div className="bg-slate-800 p-2 rounded-xl border border-slate-700 shadow-xl">
             <Logo className="w-10 h-10" />
@@ -200,9 +224,12 @@ const App: React.FC = () => {
         {/* Right Column: Results */}
         <div className="lg:col-span-8">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl mb-6 animate-fade-in">
-              <p className="font-medium">Analysis Failed</p>
-              <p className="text-sm opacity-80">{error}</p>
+            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl mb-6 animate-fade-in flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Analysis Failed</p>
+                <p className="text-sm opacity-80 mt-1">{error}</p>
+              </div>
             </div>
           )}
 

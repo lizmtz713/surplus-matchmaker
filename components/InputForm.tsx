@@ -1,5 +1,5 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
-import { Upload, X, Search, FileText, Truck, MapPin, Scale, Ruler, ChevronDown, ChevronUp, Anchor, ShieldCheck, ArrowUpFromLine, Plus, FileSpreadsheet, Calendar, Clock, UserSquare2, AlertCircle } from 'lucide-react';
+import { Upload, X, Search, FileText, Truck, MapPin, Scale, Ruler, ChevronDown, ChevronUp, Anchor, ShieldCheck, ArrowUpFromLine, Plus, FileSpreadsheet, Calendar, Clock, UserSquare2, AlertCircle, Link as LinkIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MAX_IMAGE_SIZE_MB, SUPPORTED_IMAGE_TYPES } from '../constants';
 
@@ -19,7 +19,8 @@ interface InputFormProps {
       pickupDate: string;
       pickupContact: string;
       loadingHours: string;
-    }
+    },
+    referenceUrl: string // Added referenceUrl
   ) => void;
   isLoading: boolean;
 }
@@ -27,6 +28,7 @@ interface InputFormProps {
 export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
   const [description, setDescription] = useState('');
   const [condition, setCondition] = useState('Unknown / Mixed');
+  const [referenceUrl, setReferenceUrl] = useState(''); // New state for URL
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   
@@ -134,7 +136,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim() && selectedImages.length === 0) {
+    if (!description.trim() && selectedImages.length === 0 && !referenceUrl.trim()) {
       return;
     }
     onSubmit(description, condition, selectedImages, { 
@@ -148,25 +150,42 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
       pickupDate,
       pickupContact,
       loadingHours
-    });
+    }, referenceUrl);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center justify-between">
-            <span>Item Description or Inventory List</span>
-            <span className="text-xs text-amber-500 font-normal">Accepts Single Items, Bulk Lists, or Excel/CSV</span>
-          </label>
-          <div className="relative">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={`Example Single: "2015 Nissan Forklift, 5k hours..."\nExample List: "3x Drills, 2x Jacks..."\n\nOr upload an Excel file to auto-populate this field.`}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none h-40 resize-none transition-all font-mono text-sm"
+        <div className="md:col-span-2 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center justify-between">
+              <span>Item Description or Inventory List</span>
+              <span className="text-xs text-amber-500 font-normal">Accepts Single Items, Bulk Lists, or Excel/CSV</span>
+            </label>
+            <div className="relative">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={`Example Single: "2015 Nissan Forklift, 5k hours..."\nExample List: "3x Drills, 2x Jacks..."\n\nOr upload an Excel file to auto-populate this field.`}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none h-32 resize-none transition-all font-mono text-sm"
+              />
+              <FileText className="absolute top-3 right-3 w-5 h-5 text-slate-600 pointer-events-none" />
+            </div>
+          </div>
+          
+          {/* URL Input Field */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+               <LinkIcon className="w-4 h-4 text-blue-400" />
+               <span>Link to Item / Auction (Optional)</span>
+            </label>
+            <input 
+              type="url" 
+              value={referenceUrl}
+              onChange={(e) => setReferenceUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
             />
-            <FileText className="absolute top-3 right-3 w-5 h-5 text-slate-600 pointer-events-none" />
           </div>
         </div>
 
@@ -442,9 +461,9 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
       <button
         type="submit"
-        disabled={isLoading || (!description && selectedImages.length === 0)}
+        disabled={isLoading || (!description && selectedImages.length === 0 && !referenceUrl)}
         className={`w-full py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${
-          isLoading || (!description && selectedImages.length === 0)
+          isLoading || (!description && selectedImages.length === 0 && !referenceUrl)
             ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
             : 'bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/20'
         }`}
