@@ -2,9 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-const rootElement = document.getElementById('root');
+// Targeted the unique ID 'surplus-app-root' to bypass any legacy conflicts
+const rootElement = document.getElementById('surplus-app-root');
+
 if (!rootElement) {
-  throw new Error("Could not find root element to mount");
+  throw new Error("Could not find root element 'surplus-app-root' to mount application");
 }
 
 const root = ReactDOM.createRoot(rootElement);

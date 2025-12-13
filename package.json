@@ -10,12 +10,13 @@
   },
   "dependencies": {
     "@google/genai": "^1.32.0",
-    "lucide-react": "^0.559.0",
+    "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "xlsx": "0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^20.11.24",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",

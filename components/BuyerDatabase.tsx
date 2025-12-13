@@ -8,6 +8,14 @@ interface BuyerDatabaseProps {
   matchedBuyers?: BuyerMatch[];
 }
 
+// Extended type for display logic
+type EnrichedBuyer = Buyer & {
+  matchScore: number;
+  isMatch: boolean;
+  matchReason?: string;
+  matchData?: BuyerMatch;
+};
+
 export const BuyerDatabase: React.FC<BuyerDatabaseProps> = ({ buyers, onUpdateBuyers, matchedBuyers }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentBuyer, setCurrentBuyer] = useState<Partial<Buyer>>({});
@@ -113,7 +121,7 @@ Please review and add us to the network.`;
   // --- Intelligent Sorting & Matching Logic ---
   
   // 1. Enrich buyers with match data if available
-  const enrichedBuyers = useMemo(() => {
+  const enrichedBuyers: EnrichedBuyer[] = useMemo(() => {
     const matchesAvailable = matchedBuyers && matchedBuyers.length > 0;
     
     return buyers.map(b => {
