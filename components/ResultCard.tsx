@@ -31,7 +31,8 @@ import {
   KeyRound,
   ArrowRight,
   ClipboardCopy,
-  EyeOff
+  EyeOff,
+  Eye
 } from 'lucide-react';
 
 interface ResultCardProps {
@@ -49,6 +50,9 @@ export const ResultCard: React.FC<ResultCardProps> = ({ result, isProMode, onUnl
   const [codeError, setCodeError] = useState('');
   const [copiedBrief, setCopiedBrief] = useState(false);
   const [copiedTeaser, setCopiedTeaser] = useState(false);
+  
+  // Privacy State (Blurs prices for screenshots)
+  const [privacyMode, setPrivacyMode] = useState(false);
 
   // LIVE STRIPE LINK
   const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/eVq4gydxd7KSbaF4Cg8AE00"; 
@@ -190,7 +194,7 @@ Please reply for full manifest and pricing.
   return (
     <div className="space-y-6">
       {/* 1. Item Analysis & Valuation Header (ALWAYS FREE) */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-300">
         <div className="p-6 border-b border-slate-700 bg-slate-900">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
             <div className="text-amber-500 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
@@ -198,6 +202,20 @@ Please reply for full manifest and pricing.
                 Phase 1: Market Valuation & Pricing Strategy
             </div>
             <div className="flex items-center gap-2">
+               {/* Privacy Mode Toggle */}
+               <button 
+                 onClick={() => setPrivacyMode(!privacyMode)}
+                 className={`text-[10px] md:text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all mr-2 ${
+                    privacyMode 
+                    ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' 
+                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:text-white'
+                 }`}
+                 title={privacyMode ? "Reveal Prices" : "Blur Prices for Screenshot/Sharing"}
+               >
+                 {privacyMode ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                 {privacyMode ? "Show Prices" : "Hide Prices"}
+               </button>
+
                {/* Internal Brief Button */}
                <button 
                  onClick={generateInternalBrief}
@@ -217,10 +235,6 @@ Please reply for full manifest and pricing.
                  {copiedTeaser ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <EyeOff className="w-3.5 h-3.5" />}
                  {copiedTeaser ? "Copied!" : "Blind Teaser"}
                </button>
-
-               <div className="text-[10px] bg-green-500/10 text-green-500 px-2 py-1 rounded border border-green-500/20 font-medium ml-2">
-                  Free Preview
-               </div>
             </div>
           </div>
           <h2 className="text-xl font-bold text-white mb-6">
@@ -233,20 +247,26 @@ Please reply for full manifest and pricing.
                <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1 uppercase tracking-wide">
                  <Recycle className="w-3 h-3" /> Lot Scrap Floor
                </div>
-               <div className="text-xl font-bold text-slate-300">{result?.valuation?.scrapValue || 'N/A'}</div>
+               <div className={`text-xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-slate-300'}`}>
+                 {result?.valuation?.scrapValue || 'N/A'}
+               </div>
             </div>
 
             <div className="bg-amber-500/10 p-4 rounded-lg border border-amber-500/30 text-center relative overflow-hidden">
                <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
                <div className="text-xs text-amber-500 mb-1 font-bold uppercase tracking-wide">Total Lot Surplus Value</div>
-               <div className="text-2xl font-bold text-white">{result?.valuation?.surplusValue || 'N/A'}</div>
+               <div className={`text-2xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-white'}`}>
+                 {result?.valuation?.surplusValue || 'N/A'}
+               </div>
             </div>
 
             <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 text-center">
                <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1 uppercase tracking-wide">
                  <Store className="w-3 h-3" /> Lot Retail Ceiling
                </div>
-               <div className="text-xl font-bold text-slate-300">{result?.valuation?.retailValue || 'N/A'}</div>
+               <div className={`text-xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-slate-300'}`}>
+                 {result?.valuation?.retailValue || 'N/A'}
+               </div>
             </div>
           </div>
 
@@ -278,9 +298,9 @@ Please reply for full manifest and pricing.
                          </td>
                          <td className="px-4 py-3 text-slate-300">{item.condition}</td>
                          <td className="px-4 py-3 text-slate-300 text-center">{item.qty}</td>
-                         <td className="px-4 py-3 text-slate-400 text-right font-mono text-xs">{item.retailPrice}</td>
-                         <td className="px-4 py-3 text-slate-200 text-right font-mono">{item.unitPrice}</td>
-                         <td className="px-4 py-3 text-amber-400 font-bold text-right font-mono">{item.totalPrice}</td>
+                         <td className={`px-4 py-3 text-slate-400 text-right font-mono text-xs ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.retailPrice}</td>
+                         <td className={`px-4 py-3 text-slate-200 text-right font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.unitPrice}</td>
+                         <td className={`px-4 py-3 text-amber-400 font-bold text-right font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.totalPrice}</td>
                        </tr>
                      ))}
                    </tbody>
@@ -289,7 +309,7 @@ Please reply for full manifest and pricing.
                        <td colSpan={5} className="px-4 py-3 text-right font-bold text-slate-300 uppercase tracking-wider text-xs">
                          Grand Total (Surplus Value)
                        </td>
-                       <td className="px-4 py-3 text-right font-bold text-amber-500 font-mono text-lg">
+                       <td className={`px-4 py-3 text-right font-bold text-amber-500 font-mono text-lg ${privacyMode ? 'blur-md select-none' : ''}`}>
                          {result.valuation.surplusValue}
                        </td>
                      </tr>
@@ -303,7 +323,7 @@ Please reply for full manifest and pricing.
           <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-6 mb-6">
              <div className="flex items-end justify-between mb-2 text-sm">
                 <div className="text-slate-500 font-medium">Lot Pricing Spectrum</div>
-                <div className="text-amber-500 font-bold flex items-center gap-1">
+                <div className={`text-amber-500 font-bold flex items-center gap-1 ${privacyMode ? 'blur-sm select-none' : ''}`}>
                    Recommended Ask Range: {result?.valuation?.askRange?.min || 'N/A'} - {result?.valuation?.askRange?.max || 'N/A'}
                 </div>
              </div>
@@ -348,7 +368,7 @@ Please reply for full manifest and pricing.
                <div className="text-xs text-slate-500 font-bold uppercase mb-2 flex items-center gap-2">
                  <Gavel className="w-3 h-3" /> Scrap Calculation Basis
                </div>
-               <p className="text-sm text-slate-400 font-mono">
+               <p className={`text-sm text-slate-400 font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>
                  {result?.valuation?.scrapDetails || "Calculating weight & rates..."}
                </p>
              </div>
