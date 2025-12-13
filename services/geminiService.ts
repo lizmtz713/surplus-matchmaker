@@ -20,14 +20,20 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize inside functions to avoid crash on module load if key is missing
+const getAIClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY is missing. Please set it in your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 // Step 1: Perform Web Research (Text Output)
-async function performMarketResearch(description: string, location: string): Promise<string> {
-  if (!description) return "No description provided for research.";
+async function performMarketResearch(description: string, location: string): Promise<{ text: string; sources: string[] }> {
+  if (!description) return { text: "No description provided for research.", sources: [] };
 
   const researchPrompt = `
-    You are an expert industrial procurement specialist.
+     You are an expert industrial procurement specialist.
     
     **OBJECTIVE 1: BUYER FINDING**
     Conduct deep web research to find 15 high-potential active commercial buyers, dealers, or liquidation companies that would buy this specific item:
@@ -54,6 +60,7 @@ async function performMarketResearch(description: string, location: string): Pro
   `;
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: researchPrompt,
@@ -61,10 +68,31 @@ async function performMarketResearch(description: string, location: string): Pro
         tools: [{ googleSearch: {} }],
       },
     });
-    return response.text || "No research results found.";
+
+    // Extract text
+    let textOutput = response.text || "No research results found.";
+    let extractedSources: string[] = [];
+
+    // EXTRACT GROUNDING CHUNKS (SOURCES)
+    // The SDK returns citation metadata if Google Search was used. We must display this.
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    if (chunks) {
+      extractedSources = chunks
+        .map((chunk: any) => chunk.web?.uri)
+        .filter((uri: string) => uri); // Filter out empty URIs
+        
+      const sourcesList = extractedSources.map((uri: string) => `- ${uri}`).join('\n');
+
+      if (sourcesList.length > 0) {
+        textOutput += `\n\n### Verified Sources:\n${sourcesList}`;
+      }
+    }
+
+    return { text: textOutput, sources: extractedSources };
+
   } catch (error) {
     console.warn("Research phase failed:", error);
-    return "Research unavailable (Internal data only).";
+    return { text: "Research unavailable (Internal data only).", sources: [] };
   }
 }
 
@@ -89,7 +117,7 @@ export const matchItemToBuyer = async (
 ): Promise<MatchResult> => {
   
   // 1. Run Research First
-  const researchResults = await performMarketResearch(description, logistics.origin);
+  const { text: researchResults, sources: researchSources } = await performMarketResearch(description, logistics.origin);
 
   // 2. Prepare Context for Synthesis
   // IMPORTANT: Send the FULL buyers list (do not slice) to ensure we find the best match from the entire database.
@@ -233,6 +261,7 @@ export const matchItemToBuyer = async (
   }
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: {
@@ -254,11 +283,15 @@ export const matchItemToBuyer = async (
     resultText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
 
     const parsedResult = JSON.parse(resultText) as MatchResult;
+    
+    // Attach the sources from Phase 1 to the final result for display
+    parsedResult.researchSources = researchSources;
+    
     return parsedResult;
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("Failed to analyze item. Please try again.");
+    throw new Error("Failed to analyze item. Please check your API Key and try again.");
   }
 };
 
@@ -297,6 +330,7 @@ export const askSurplusAI = async (
   `;
 
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: chatPrompt,
@@ -305,6 +339,6 @@ export const askSurplusAI = async (
     return response.text || "I'm not sure how to answer that based on the current data.";
   } catch (error) {
     console.error("Chat Error:", error);
-    return "I'm having trouble connecting to the consultation server right now.";
+    return "I'm having trouble connecting to the consultation server right now. Please check your API connection.";
   }
 };

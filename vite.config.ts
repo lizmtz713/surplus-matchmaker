@@ -7,7 +7,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY)
+      // Ensure we always return a string, even if env.API_KEY is missing.
+      // This prevents "ReferenceError: process is not defined" in the browser.
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || '')
     }
   }
 })

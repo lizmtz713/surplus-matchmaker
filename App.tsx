@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock } from 'lucide-react';
+import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database } from 'lucide-react';
 import { BuyerDatabase } from './components/BuyerDatabase';
 import { InputForm } from './components/InputForm';
 import { ResultCard } from './components/ResultCard';
@@ -20,18 +20,46 @@ const App: React.FC = () => {
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [buyers, setBuyers] = useState<Buyer[]>(INITIAL_BUYERS);
+  
+  // Persistence Logic for Buyers
+  const [buyers, setBuyers] = useState<Buyer[]>(() => {
+    try {
+      const saved = localStorage.getItem('surplus_buyer_db');
+      return saved ? JSON.parse(saved) : INITIAL_BUYERS;
+    } catch (e) {
+      console.warn("Failed to load buyers from storage", e);
+      return INITIAL_BUYERS;
+    }
+  });
+
+  // Save buyers on change
+  useEffect(() => {
+    try {
+      localStorage.setItem('surplus_buyer_db', JSON.stringify(buyers));
+    } catch (e) {
+      console.warn("Failed to save buyers to storage", e);
+    }
+  }, [buyers]);
   
   // New State for Paywall Simulation with Local Storage Persistence
   const [isProMode, setIsProMode] = useState(() => {
-    // Check local storage on initial load
-    const saved = localStorage.getItem('surplus_pro_mode');
-    return saved === 'true';
+    try {
+      // Check local storage on initial load
+      const saved = localStorage.getItem('surplus_pro_mode');
+      return saved === 'true';
+    } catch (e) {
+      // Fallback if localStorage is disabled (e.g. Incognito)
+      return false;
+    }
   });
 
   // Save to local storage whenever isProMode changes
   useEffect(() => {
-    localStorage.setItem('surplus_pro_mode', isProMode.toString());
+    try {
+      localStorage.setItem('surplus_pro_mode', isProMode.toString());
+    } catch (e) {
+      console.warn("Could not save to localStorage");
+    }
   }, [isProMode]);
 
   useEffect(() => {
@@ -91,6 +119,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleResetDb = () => {
+    if (confirm("Are you sure you want to reset the buyer database to defaults? All custom entries will be lost.")) {
+      setBuyers(INITIAL_BUYERS);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8">
       <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row items-center justify-between border-b border-slate-700 pb-6 gap-4">
@@ -106,7 +140,16 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4 justify-end">
+           {/* DB Reset Tool */}
+           <button 
+             onClick={handleResetDb}
+             className="text-xs text-slate-600 hover:text-red-400 transition-colors flex items-center gap-1"
+             title="Reset Database to Defaults"
+           >
+             <Database className="w-3 h-3" /> Reset DB
+           </button>
+
           {/* Admin Toggle for Demo Purposes */}
           <button 
              onClick={() => setIsProMode(!isProMode)}

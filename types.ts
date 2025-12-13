@@ -98,6 +98,7 @@ export interface MatchResult {
   cadence: Cadence;
   logistics: Logistics;
   summary: string;
+  researchSources?: string[]; // New: List of URLs from Google Search Grounding
 }
 
 export interface MatchRequest {
