@@ -55,17 +55,24 @@ async function performMarketResearch(description: string, location: string): Pro
     - Search for recent sold listings (Auctions, eBay, IronPlanet) or active dealer listings (Machinio, EquipmentTrader) for this specific item.
     - Find 3-5 specific comparable items ("Comps") with their prices.
     
-    **OBJECTIVE 3: FREIGHT**
+    **OBJECTIVE 3: FREIGHT & LOGISTICS**
     - Find 3 specific freight brokers or logistics companies suitable for heavy equipment in this region.
+    - Identify the approximate distance and route from ${location || "Origin"} to major industrial hubs.
   `;
 
   try {
+    // FIXED: Use process.env.API_KEY instead of import.meta.env.VITE_API_KEY to ensure research works
     const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: researchPrompt,
       config: {
-        tools: [{ googleSearch: {} }],
+        // Enable both Google Search and Google Maps for maximum buyer discovery
+        tools: [{ googleSearch: {} }, { googleMaps: {} }],
+        toolConfig: {
+           // We can't easily get user's lat/long here without browser permission, 
+           // so we rely on the text query "Location" variable.
+        }
       },
     });
 
@@ -74,17 +81,28 @@ async function performMarketResearch(description: string, location: string): Pro
     let extractedSources: string[] = [];
 
     // EXTRACT GROUNDING CHUNKS (SOURCES)
-    // The SDK returns citation metadata if Google Search was used. We must display this.
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks) {
-      extractedSources = chunks
-        .map((chunk: any) => chunk.web?.uri)
-        .filter((uri: string) => uri); // Filter out empty URIs
-        
+      chunks.forEach((chunk: any) => {
+        if (chunk.web?.uri) {
+            extractedSources.push(chunk.web.uri);
+        }
+        if (chunk.maps?.uri) {
+            extractedSources.push(chunk.maps.uri);
+        }
+        // Handle potential place snippets for address accuracy
+        if (chunk.maps?.placeAnswerSources?.reviewSnippets) {
+             // We don't need snippets in the source list, but the model sees them in context.
+        }
+      });
+      
+      // Deduplicate
+      extractedSources = [...new Set(extractedSources)];
+
       const sourcesList = extractedSources.map((uri: string) => `- ${uri}`).join('\n');
 
       if (sourcesList.length > 0) {
-        textOutput += `\n\n### Verified Sources:\n${sourcesList}`;
+        textOutput += `\n\n### Verified Sources (Grounding Data):\n${sourcesList}`;
       }
     }
 
@@ -173,6 +191,7 @@ export const matchItemToBuyer = async (
     - **Source:** STRICTLY "LIVE WEB RESEARCH RESULTS".
     - **Goal:** Find 10 NEW buyers from the web that are NOT in the internal list.
     - **Details:** MUST include Phone, Email, Address from research.
+    - **URLs:** If the research provides a Google Maps URI or Website URL, include it.
     
     **Part B: INTERNAL NETWORK MATCHES (Populate "internalBuyerMatches")**
     - **Source:** STRICTLY the "INTERNAL BUYER NETWORK" JSON provided above.

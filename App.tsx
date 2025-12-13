@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database } from 'lucide-react';
+import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database, Map } from 'lucide-react';
 import { BuyerDatabase } from './components/BuyerDatabase';
 import { InputForm } from './components/InputForm';
 import { ResultCard } from './components/ResultCard';
@@ -10,7 +10,7 @@ import { BUYERS as INITIAL_BUYERS } from './constants';
 
 const LOADING_STEPS = [
   { message: "Analyzing item specifications...", icon: PackageSearch, duration: 2000 },
-  { message: "Conducting global market research (Google Search)...", icon: Search, duration: 4000 },
+  { message: "Conducting global market research (Search & Maps)...", icon: Search, duration: 4000 },
   { message: "Scoring internal buyer network...", icon: BrainCircuit, duration: 2500 },
   { message: "Drafting high-conversion outreach...", icon: PenTool, duration: 2000 }
 ];
@@ -166,7 +166,7 @@ const App: React.FC = () => {
 
           <div className="hidden md:flex items-center gap-2 text-sm text-amber-500 font-medium bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
             <Activity className="w-4 h-4" />
-            <span>Gemini 2.5 Flash + Google Search</span>
+            <span>Gemini 2.5 + Search & Maps</span>
           </div>
         </div>
       </header>
