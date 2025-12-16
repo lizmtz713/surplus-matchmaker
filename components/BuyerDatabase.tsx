@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Database, Plus, Pencil, Trash2, X, Save, Search, Star, ChevronDown, ChevronUp, CheckCircle2, Crown, MapPin, Phone, Mail, Globe, User, UserPlus } from 'lucide-react';
+import { Database, Plus, Pencil, Trash2, X, Save, Search, Star, ChevronDown, ChevronUp, CheckCircle2, Crown, MapPin, Phone, Mail, Globe, User, UserPlus, Lock } from 'lucide-react';
 import { Buyer, BuyerMatch } from '../types';
 
 interface BuyerDatabaseProps {
   buyers: Buyer[];
   onUpdateBuyers: (buyers: Buyer[]) => void;
   matchedBuyers?: BuyerMatch[];
+  isProMode: boolean; // Received from App
 }
 
 // Extended type for display logic
@@ -16,7 +17,7 @@ type EnrichedBuyer = Buyer & {
   matchData?: BuyerMatch;
 };
 
-export const BuyerDatabase: React.FC<BuyerDatabaseProps> = ({ buyers, onUpdateBuyers, matchedBuyers }) => {
+export const BuyerDatabase: React.FC<BuyerDatabaseProps> = ({ buyers, onUpdateBuyers, matchedBuyers, isProMode }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentBuyer, setCurrentBuyer] = useState<Partial<Buyer>>({});
   const [isEditing, setIsEditing] = useState(false);
@@ -248,7 +249,13 @@ Please review and add us to the network.`;
             {displayList.map((buyer) => {
               // Extract best available data
               // Prioritize: Match Address -> Static Address -> Location
-              const displayAddress = buyer.matchData?.address || buyer.address || buyer.location || "Location not listed";
+              
+              // IF NOT PRO: Hide specific street address, only show city/state/region
+              const fullAddress = buyer.matchData?.address || buyer.address || buyer.location || "Location not listed";
+              const displayAddress = isProMode 
+                ? fullAddress 
+                : (buyer.location || "United States (Address Locked)");
+
               const displayPhone = buyer.matchData?.phone; // Only from match
               const displayEmail = buyer.matchData?.email; // Only from match
               const displayWebsite = buyer.matchData?.website || buyer.website; // From match OR database
@@ -265,20 +272,22 @@ Please review and add us to the network.`;
                         : 'bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50'
                   }`}
                 >
-                    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => openEditModal(buyer)}
-                        className="p-1 hover:bg-slate-600 rounded text-slate-400 hover:text-white"
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      <button 
-                        onClick={(e) => handleDelete(buyer.id, e)}
-                        className="p-1 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-400"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+                    {isProMode && (
+                        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => openEditModal(buyer)}
+                            className="p-1 hover:bg-slate-600 rounded text-slate-400 hover:text-white"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button 
+                            onClick={(e) => handleDelete(buyer.id, e)}
+                            className="p-1 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-400"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                    )}
 
                     {/* Header: Name & ID */}
                     <div className="flex items-start justify-between">
@@ -305,6 +314,9 @@ Please review and add us to the network.`;
                                 {buyer.matchScore}% <CheckCircle2 className="w-3 h-3" />
                             </div>
                         )}
+                        {!isProMode && !buyer.isMatch && (
+                           <Lock className="w-3 h-3 text-slate-600" />
+                        )}
                     </div>
 
                     {/* Address Line */}
@@ -328,51 +340,72 @@ Please review and add us to the network.`;
 
                     {/* Contact Details Grid */}
                     <div className="pl-8 pt-3 mt-1 border-t border-slate-700/50 flex flex-col gap-1.5 text-xs">
-                         {/* Website ALWAYS shows if available */}
-                         {displayWebsite && (
-                            <div className="flex items-center gap-2 text-slate-300">
-                                <Globe className="w-3 h-3 text-slate-500" /> 
-                                <a href={displayWebsite.startsWith('http') ? displayWebsite : `https://${displayWebsite}`} target="_blank" rel="noreferrer" className="hover:text-blue-400 truncate text-blue-400/80">
-                                   {displayWebsite.replace(/^https?:\/\/(www\.)?/, '')}
-                                </a>
-                            </div>
-                         )}
+                        
+                        {/* UNLOCKED: Show real data */}
+                        {isProMode ? (
+                           <>
+                             {displayWebsite && (
+                                <div className="flex items-center gap-2 text-slate-300">
+                                    <Globe className="w-3 h-3 text-slate-500" /> 
+                                    <a href={displayWebsite.startsWith('http') ? displayWebsite : `https://${displayWebsite}`} target="_blank" rel="noreferrer" className="hover:text-blue-400 truncate text-blue-400/80">
+                                       {displayWebsite.replace(/^https?:\/\/(www\.)?/, '')}
+                                    </a>
+                                </div>
+                             )}
 
-                        {/* Dynamic Contact Display */}
-                        {buyer.isMatch ? (
-                            // Matched Buyer: Show Enriched Data Fields
-                            <div className="space-y-1.5">
-                                {displayPhone && (
-                                    <div className="flex items-center gap-2 text-slate-300">
-                                        <Phone className="w-3 h-3 text-slate-500" /> 
-                                        <span className="hover:text-white select-all">{displayPhone}</span>
-                                    </div>
-                                )}
-                                {displayEmail && (
-                                    <div className="flex items-center gap-2 text-slate-300">
-                                        <Mail className="w-3 h-3 text-slate-500" /> 
-                                        <span className="hover:text-white select-all">{displayEmail}</span>
-                                    </div>
-                                )}
-                                {/* Fallback if structured data missing but raw contact exists */}
-                                {(!displayPhone && !displayEmail && rawContact) && (
-                                   <div className="flex items-start gap-2 text-slate-400 mt-1">
-                                      <User className="w-3 h-3 text-slate-500 mt-0.5" />
-                                      <span className="select-all">{rawContact}</span>
-                                   </div>
-                                )}
-                            </div>
+                             {buyer.isMatch ? (
+                                <div className="space-y-1.5">
+                                    {displayPhone && (
+                                        <div className="flex items-center gap-2 text-slate-300">
+                                            <Phone className="w-3 h-3 text-slate-500" /> 
+                                            <span className="hover:text-white select-all">{displayPhone}</span>
+                                        </div>
+                                    )}
+                                    {displayEmail && (
+                                        <div className="flex items-center gap-2 text-slate-300">
+                                            <Mail className="w-3 h-3 text-slate-500" /> 
+                                            <span className="hover:text-white select-all">{displayEmail}</span>
+                                        </div>
+                                    )}
+                                    {(!displayPhone && !displayEmail && rawContact) && (
+                                       <div className="flex items-start gap-2 text-slate-400 mt-1">
+                                          <User className="w-3 h-3 text-slate-500 mt-0.5" />
+                                          <span className="select-all">{rawContact}</span>
+                                       </div>
+                                    )}
+                                </div>
+                             ) : (
+                                <div className="space-y-1.5">
+                                   {rawContact ? (
+                                       <div className="flex items-start gap-2 text-slate-400">
+                                          <User className="w-3 h-3 text-slate-500 mt-0.5" />
+                                          <span className="select-all leading-snug">{rawContact}</span>
+                                       </div>
+                                   ) : (
+                                       <span className="text-slate-600 italic text-[10px]"></span>
+                                   )}
+                                </div>
+                             )}
+                           </>
                         ) : (
-                            // Standard/Featured Buyer: Show Raw Contact Data
-                            <div className="space-y-1.5">
-                               {rawContact ? (
-                                   <div className="flex items-start gap-2 text-slate-400">
-                                      <User className="w-3 h-3 text-slate-500 mt-0.5" />
-                                      <span className="select-all leading-snug">{rawContact}</span>
+                            /* LOCKED: Show blurred placeholders */
+                            <div className="grid grid-cols-1 gap-2 text-xs opacity-50 select-none relative mt-1">
+                                <div className="flex gap-4 filter blur-[3px]">
+                                   <div className="flex items-center gap-2 text-slate-500">
+                                     <Phone className="w-3.5 h-3.5" /> (•••) •••-••••
                                    </div>
-                               ) : (
-                                   <span className="text-slate-600 italic text-[10px]"></span>
-                               )}
+                                   <div className="flex items-center gap-2 text-slate-500">
+                                     <Mail className="w-3.5 h-3.5" /> •••••@•••••.com
+                                   </div>
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-500 filter blur-[3px]">
+                                     <Globe className="w-3.5 h-3.5" /> www.••••••••••.com
+                                </div>
+                                <div className="absolute inset-0 flex items-center justify-start">
+                                    <span className="bg-slate-800 text-amber-500 text-[10px] px-2 py-0.5 rounded border border-amber-500/30 font-bold flex items-center gap-1 shadow-sm">
+                                       <Lock className="w-3 h-3" /> Locked
+                                    </span>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -404,7 +437,7 @@ Please review and add us to the network.`;
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal - Hidden in non-pro mode to prevent bypassing logic via Edit (optional, but good for security) or leave open if you want users to add their own */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">

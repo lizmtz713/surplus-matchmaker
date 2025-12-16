@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, Lock, Unlock, Database, Map, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, AlertTriangle } from 'lucide-react';
 import { BuyerDatabase } from './components/BuyerDatabase';
 import { InputForm } from './components/InputForm';
 import { ResultCard } from './components/ResultCard';
@@ -20,7 +20,9 @@ const App: React.FC = () => {
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  
+  // Reference for Auto-scrolling to results
+  const resultsRef = useRef<HTMLDivElement>(null);
   
   // Persistence Logic for Buyers
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
@@ -33,15 +35,6 @@ const App: React.FC = () => {
     }
   });
 
-  // Check for API Key on mount
-  useEffect(() => {
-    const key = process.env.API_KEY;
-    // Check if key is empty, undefined, or still has the default placeholder
-    if (!key || key.includes("YOUR_ACTUAL_API_KEY") || key.includes("YOUR_REAL_KEY")) {
-      setApiKeyMissing(true);
-    }
-  }, []);
-
   // Save buyers on change
   useEffect(() => {
     try {
@@ -52,13 +45,12 @@ const App: React.FC = () => {
   }, [buyers]);
   
   // New State for Paywall Simulation with Local Storage Persistence
+  // CHANGED KEY TO V2 TO FORCE RESET FOR USER
   const [isProMode, setIsProMode] = useState(() => {
     try {
-      // Check local storage on initial load
-      const saved = localStorage.getItem('surplus_pro_mode');
+      const saved = localStorage.getItem('surplus_pro_mode_v2');
       return saved === 'true';
     } catch (e) {
-      // Fallback if localStorage is disabled (e.g. Incognito)
       return false;
     }
   });
@@ -66,7 +58,7 @@ const App: React.FC = () => {
   // Save to local storage whenever isProMode changes
   useEffect(() => {
     try {
-      localStorage.setItem('surplus_pro_mode', isProMode.toString());
+      localStorage.setItem('surplus_pro_mode_v2', isProMode.toString());
     } catch (e) {
       console.warn("Could not save to localStorage");
     }
@@ -97,6 +89,16 @@ const App: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [loading]);
 
+  // Auto-scroll to results when analysis is done
+  useEffect(() => {
+    if (result && !loading && resultsRef.current) {
+      // Small timeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [result, loading]);
+
   const handleMatchRequest = async (
     description: string, 
     condition: string,
@@ -115,11 +117,6 @@ const App: React.FC = () => {
     },
     referenceUrl: string
   ) => {
-    if (apiKeyMissing) {
-      setError("Cannot proceed: API Key is missing. Please configure your environment variables.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
     setResult(null);
@@ -135,22 +132,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleResetDb = () => {
-    if (confirm("Are you sure you want to reset the buyer database to defaults? All custom entries will be lost.")) {
-      setBuyers(INITIAL_BUYERS);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8">
-      {/* API Key Warning Banner */}
-      {apiKeyMissing && (
-        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white p-3 text-center z-50 flex items-center justify-center gap-2 font-bold shadow-lg">
-          <AlertTriangle className="w-5 h-5" />
-          <span>SETUP REQUIRED: API Key Missing. Please add API_KEY to your .env file (Local) or Project Settings (Netlify).</span>
-        </div>
-      )}
-
       <header className="max-w-6xl mx-auto mb-8 flex flex-col md:flex-row items-center justify-between border-b border-slate-700 pb-6 gap-4 pt-6">
         <div className="flex items-center gap-3">
           <div className="bg-slate-800 p-2 rounded-xl border border-slate-700 shadow-xl">
@@ -165,29 +148,6 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap items-center gap-4 justify-end">
-           {/* DB Reset Tool */}
-           <button 
-             onClick={handleResetDb}
-             className="text-xs text-slate-600 hover:text-red-400 transition-colors flex items-center gap-1"
-             title="Reset Database to Defaults"
-           >
-             <Database className="w-3 h-3" /> Reset DB
-           </button>
-
-          {/* Admin Toggle for Demo Purposes */}
-          <button 
-             onClick={() => setIsProMode(!isProMode)}
-             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-               isProMode 
-                ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-lg shadow-amber-500/20' 
-                : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-white'
-             }`}
-             title="Toggle Paywall Simulation (Admin Bypass)"
-          >
-             {isProMode ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-             {isProMode ? 'Admin: Pro Mode Active' : 'Admin: View as Free User'}
-          </button>
-
           <div className="hidden md:flex items-center gap-2 text-sm text-amber-500 font-medium bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
             <Activity className="w-4 h-4" />
             <span>Gemini 2.5 + Search & Maps</span>
@@ -218,18 +178,29 @@ const App: React.FC = () => {
             buyers={buyers} 
             onUpdateBuyers={setBuyers} 
             matchedBuyers={result?.internalBuyerMatches}
+            isProMode={isProMode}
           />
         </div>
 
         {/* Right Column: Results */}
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8" ref={resultsRef}>
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl mb-6 animate-fade-in flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">Analysis Failed</p>
-                <p className="text-sm opacity-80 mt-1">{error}</p>
+            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-6 rounded-xl mb-6 animate-fade-in flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                 <AlertTriangle className="w-6 h-6 shrink-0" />
+                 <div>
+                   <p className="font-bold text-lg">System Diagnostic Alert</p>
+                   <p className="text-sm opacity-90">The analysis sequence encountered an error.</p>
+                 </div>
               </div>
+              <div className="bg-slate-900/50 p-4 rounded-lg font-mono text-xs text-red-300 border border-red-500/20 overflow-x-auto">
+                 <strong>Diagnostic Log:</strong><br/>
+                 {error}
+              </div>
+              <p className="text-xs text-red-300/80">
+                 Tip: This usually happens if the server times out (took longer than 10s) or if the API Key is invalid. 
+                 Try reducing the image size or description length and try again.
+              </p>
             </div>
           )}
 

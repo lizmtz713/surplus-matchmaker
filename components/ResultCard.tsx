@@ -378,74 +378,12 @@ Please reply for full manifest and pricing.
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
         
-        {/* PAYWALL OVERLAY - Only shows if NOT Pro Mode */}
-        {!isProMode && (
-           <div className="absolute inset-0 z-50 bg-slate-900/70 backdrop-blur-sm rounded-xl flex items-center justify-center p-6">
-              <div className="bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative overflow-hidden">
-                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-amber-300"></div>
-                 
-                 <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Lock className="w-8 h-8 text-amber-500" />
-                 </div>
-                 
-                 <h3 className="text-xl font-bold text-white mb-2">Unlock Buyer Data</h3>
-                 <p className="text-slate-400 text-sm mb-6">
-                   We found <strong className="text-white">{result.topBuyers.length} Verified Buyers</strong> for this item. Get their phone numbers and the outreach scripts.
-                 </p>
-                 
-                 {/* Step 1: Buy */}
-                 <button 
-                   onClick={openStripe}
-                   className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-900 font-bold rounded-lg shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] mb-4"
-                 >
-                   <CreditCard className="w-5 h-5" />
-                   Get Access Code - $9.99
-                 </button>
-
-                 {/* Step 2: Enter Code */}
-                 <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                    <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2 block text-left">
-                       Have a code?
-                    </label>
-                    <form onSubmit={handleUnlockAttempt} className="flex gap-2">
-                       <div className="relative flex-1">
-                          <KeyRound className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                          <input 
-                            type="text" 
-                            value={accessCode}
-                            onChange={(e) => setAccessCode(e.target.value)}
-                            placeholder="e.g. PRO-BUYER-2025"
-                            className="w-full bg-slate-800 border border-slate-600 rounded-md py-2 pl-9 pr-3 text-sm text-white focus:border-amber-500 outline-none uppercase placeholder-slate-600"
-                          />
-                       </div>
-                       <button 
-                         type="submit"
-                         className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-md transition-colors"
-                       >
-                         <ArrowRight className="w-4 h-4" />
-                       </button>
-                    </form>
-                    {codeError && (
-                       <p className="text-xs text-red-400 mt-2 text-left">{codeError}</p>
-                    )}
-                 </div>
-                 
-                 <div className="text-center mt-4">
-                   <div className="flex items-center justify-center gap-1 text-[10px] text-green-500 font-medium opacity-80">
-                      <Zap className="w-3 h-3" />
-                      <span>Small price, huge ROI.</span>
-                   </div>
-                 </div>
-              </div>
-           </div>
-        )}
-
-        {/* 2. Buyer Matching (Blurred if Free) */}
-        <div className={`bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl h-full flex flex-col ${!isProMode ? 'filter blur-sm opacity-50 pointer-events-none' : ''}`}>
+        {/* 2. Buyer Matching (Tease Mode implemented) */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl h-full flex flex-col relative">
           <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
                <Users className="w-5 h-5 text-blue-400" />
-               <h3 className="font-bold text-slate-200">Phase 2: Top 10 Web-Researched Matches</h3>
+               <h3 className="font-bold text-slate-200">Phase 2: Top 10 Verified Buyers</h3>
             </div>
             {isProMode && (
               <div className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
@@ -453,10 +391,11 @@ Please reply for full manifest and pricing.
               </div>
             )}
           </div>
+          
           <div className="divide-y divide-slate-700/50 overflow-y-auto max-h-[600px] custom-scrollbar">
             
-            {/* NEW: Research Sources Section */}
-            {result.researchSources && result.researchSources.length > 0 && (
+            {/* Research Sources Section - ONLY VISIBLE IF PRO MODE */}
+            {isProMode && result.researchSources && result.researchSources.length > 0 && (
               <div className="bg-slate-900/50 p-4 border-b border-slate-700/50">
                 <div className="flex items-center gap-2 mb-2">
                   <Globe className="w-4 h-4 text-blue-400" />
@@ -491,6 +430,7 @@ Please reply for full manifest and pricing.
                     <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">
                       {index + 1}
                     </div>
+                    {/* Always visible Company Name (The Tease) */}
                     <span className="font-bold text-white">{buyer.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -503,63 +443,137 @@ Please reply for full manifest and pricing.
                     <span className="text-xs font-mono font-bold text-slate-300">{buyer.score}%</span>
                   </div>
                 </div>
+                {/* Always visible Reason (Tease) */}
                 <p className="text-xs text-slate-400 leading-snug mb-3 pl-7 italic">{buyer.reason}</p>
                 
-                {/* Contact Details Section */}
-                <div className="mt-2 pt-2 border-t border-slate-700/50 grid grid-cols-1 gap-1.5 text-xs pl-7">
-                  {buyer.address && (
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                      {buyer.googleMapsUri ? (
-                        <a 
-                          href={buyer.googleMapsUri} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="hover:text-blue-400 hover:underline flex items-start gap-1"
-                        >
-                          {buyer.address}
-                          <ExternalLink className="w-3 h-3 opacity-50" />
-                        </a>
-                      ) : (
-                        <span>{buyer.address || 'Address not available'}</span>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-4">
-                      {buyer.phone && (
-                        <div className="flex items-center gap-2 text-slate-300">
-                          <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          <a href={`tel:${buyer.phone}`} className="hover:text-blue-400">{buyer.phone}</a>
+                {/* Contact Details Section (LOCKED if !isProMode) */}
+                <div className="mt-2 pt-2 border-t border-slate-700/50 pl-7">
+                   {isProMode ? (
+                      /* UNLOCKED VIEW */
+                      <div className="grid grid-cols-1 gap-1.5 text-xs animate-fade-in">
+                        {buyer.address && (
+                          <div className="flex items-start gap-2 text-slate-300">
+                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                            {buyer.googleMapsUri ? (
+                              <a 
+                                href={buyer.googleMapsUri} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="hover:text-blue-400 hover:underline flex items-start gap-1"
+                              >
+                                {buyer.address}
+                                <ExternalLink className="w-3 h-3 opacity-50" />
+                              </a>
+                            ) : (
+                              <span>{buyer.address || 'Address not available'}</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-4">
+                            {buyer.phone && (
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <a href={`tel:${buyer.phone}`} className="hover:text-blue-400">{buyer.phone}</a>
+                              </div>
+                            )}
+                            
+                            {buyer.email && (
+                              <div className="flex items-center gap-2 text-slate-300">
+                                <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <a href={`mailto:${buyer.email}`} className="hover:text-blue-400">{buyer.email}</a>
+                              </div>
+                            )}
                         </div>
-                      )}
-                      
-                      {buyer.email && (
-                        <div className="flex items-center gap-2 text-slate-300">
-                          <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          <a href={`mailto:${buyer.email}`} className="hover:text-blue-400">{buyer.email}</a>
-                        </div>
-                      )}
-                  </div>
 
-                  {buyer.website && (
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <a 
-                        href={buyer.website.startsWith('http') ? buyer.website : `https://${buyer.website}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="hover:text-blue-400 truncate max-w-[200px]"
-                      >
-                        {buyer.website.replace(/^https?:\/\/(www\.)?/, '')}
-                      </a>
-                    </div>
-                  )}
+                        {buyer.website && (
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <a 
+                              href={buyer.website.startsWith('http') ? buyer.website : `https://${buyer.website}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="hover:text-blue-400 truncate max-w-[200px]"
+                            >
+                              {buyer.website.replace(/^https?:\/\/(www\.)?/, '')}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                   ) : (
+                      /* LOCKED / MASKED VIEW */
+                      <div className="grid grid-cols-1 gap-2 text-xs opacity-50 select-none relative">
+                         {/* Location is visible but fuzzy */}
+                         <div className="flex items-center gap-2 text-slate-400">
+                           <MapPin className="w-3.5 h-3.5 text-slate-600" />
+                           <span>{buyer.location || "United States"} (Address Locked)</span>
+                         </div>
+                         <div className="flex gap-4 filter blur-[3px]">
+                           <div className="flex items-center gap-2 text-slate-500">
+                             <Phone className="w-3.5 h-3.5" /> (•••) •••-••••
+                           </div>
+                           <div className="flex items-center gap-2 text-slate-500">
+                             <Mail className="w-3.5 h-3.5" /> •••••@•••••.com
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-2 text-slate-500 filter blur-[3px]">
+                             <Globe className="w-3.5 h-3.5" /> www.••••••••••.com
+                         </div>
+                         <div className="absolute inset-0 flex items-center justify-start pl-8">
+                            <span className="bg-slate-800 text-amber-500 text-[10px] px-2 py-0.5 rounded border border-amber-500/30 font-bold flex items-center gap-1 shadow-sm">
+                               <Lock className="w-3 h-3" /> Details Locked
+                            </span>
+                         </div>
+                      </div>
+                   )}
                 </div>
               </div>
             ))}
-            {(!result?.topBuyers || result.topBuyers.length === 0) && (
-              <div className="p-4 text-sm text-slate-500 text-center">No buyers matched.</div>
+            
+            {/* PAYWALL AT BOTTOM OF LIST (If Not Pro) */}
+            {!isProMode && (
+               <div className="p-6 bg-slate-900 border-t border-slate-700">
+                  <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-amber-500/30 rounded-xl p-6 relative overflow-hidden text-center shadow-lg">
+                     <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <Lock className="w-24 h-24 text-white" />
+                     </div>
+                     
+                     <h3 className="text-lg font-bold text-white mb-2">Unlock Contact Details</h3>
+                     <p className="text-slate-400 text-sm mb-4">
+                        Get direct phone numbers, email addresses, and websites for all <strong className="text-white">{result.topBuyers.length} Verified Buyers</strong> above.
+                     </p>
+                     
+                     <div className="flex flex-col gap-3">
+                        <button 
+                           onClick={openStripe}
+                           className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-900 font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01]"
+                        >
+                           <CreditCard className="w-4 h-4" />
+                           Reveal All Contacts - $9.99
+                        </button>
+
+                        <div className="bg-slate-900/50 rounded-lg p-2 border border-slate-700/50 flex gap-2 items-center">
+                           <KeyRound className="w-4 h-4 text-slate-500 ml-2" />
+                           <form onSubmit={handleUnlockAttempt} className="flex-1 flex gap-2">
+                              <input 
+                                type="text" 
+                                value={accessCode}
+                                onChange={(e) => setAccessCode(e.target.value)}
+                                placeholder="Have a code?"
+                                className="w-full bg-transparent border-none text-sm text-white focus:ring-0 outline-none placeholder-slate-600 uppercase"
+                              />
+                              <button 
+                                type="submit"
+                                className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors"
+                              >
+                                Unlock
+                              </button>
+                           </form>
+                        </div>
+                        {codeError && <p className="text-xs text-red-400">{codeError}</p>}
+                     </div>
+                  </div>
+               </div>
             )}
           </div>
         </div>
