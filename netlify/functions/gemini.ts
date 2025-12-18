@@ -12,20 +12,19 @@ const getAIClient = () => {
 async function performMarketResearch(ai: GoogleGenAI, description: string, location: string, referenceUrl?: string) {
   if (!description && !referenceUrl) return { text: "No description provided.", sources: [] };
 
-  // OPTIMIZED: Reduced to 3 buyers to speed up execution
   const researchPrompt = `
-    Find **3** commercial buyers for: "${description}"
+    Find **3** high-intent commercial buyers for: "${description}"
     ${referenceUrl ? `Reference URL: ${referenceUrl}` : ''}
     Location: ${location || "USA"}
-    Find 2 Comparable Sales.
+    Find 2 Comparable Sales / Pricing Comps.
   `;
 
   try {
-    // 6 Second Timeout for Research to prevent Function Timeout
+    // 6 Second Timeout for Research to prevent overall Function Timeout
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Research Timeout")), 6000));
     
     const apiPromise = ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview", // Upgraded to Gemini 3 Flash
       contents: researchPrompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -184,27 +183,30 @@ export default async (req: Request) => {
       const logisticsContext = `Origin: ${logistics.origin}, Truck: ${logistics.truckType}, Cond: ${condition}`;
 
       const systemInstruction = `
-        You are SurplusMatchmaker. 
-        Analyze the item and route to buyers.
+        You are "SurplusMatchmaker." 
+        Analyze the provided industrial surplus items and identify the best routing strategy.
         RESEARCH DATA: ${researchText}
         INTERNAL DB: ${buyerContext}
         LOGISTICS: ${logisticsContext}
+        
+        Generate a complete report including valuation, matches, outreach cadence, and logistics.
       `;
 
       const parts: any[] = [];
       if (images) {
         images.forEach((img: any) => parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } }));
       }
-      parts.push({ text: `Analyze Item: ${description} ${referenceUrl || ''}` });
+      parts.push({ text: `Analysis Task: ${description} ${referenceUrl || ''}` });
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-pro-preview", // Use Pro for the complex synthesis and JSON mapping
         contents: { parts },
         config: {
           systemInstruction,
           responseMimeType: 'application/json',
-          responseSchema: matchResultSchema, // STRICT SCHEMA ENFORCEMENT
-          temperature: 0.4,
+          responseSchema: matchResultSchema,
+          temperature: 0.1, // Low temperature for consistent JSON
+          thinkingConfig: { thinkingBudget: 10000 } // Reserve budget for high-quality reasoning
         },
       });
 
@@ -213,10 +215,9 @@ export default async (req: Request) => {
 
     if (action === 'chat') {
         const { context, history, question } = payload;
-        // Simplified chat logic to save tokens
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: `Context: ${context.itemAnalysis}. History: ${history.length} msgs. Q: ${question}`,
+            model: "gemini-3-flash-preview",
+            contents: `As SurplusMatchmaker, answer based on this context: ${context.itemAnalysis}. Last ${history.length} msgs. Client Question: ${question}`,
         });
         return new Response(JSON.stringify({ text: response.text }), { headers: { "Content-Type": "application/json" } });
     }
