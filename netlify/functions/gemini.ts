@@ -24,7 +24,7 @@ async function performMarketResearch(ai: GoogleGenAI, description: string, locat
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Research Timeout")), 6000));
     
     const apiPromise = ai.models.generateContent({
-      model: "gemini-1.5-flash", // Upgraded to Gemini 3 Flash
+      model: "gemini-2.5-flash", // Upgraded to Gemini 3 Flash
       contents: researchPrompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -199,7 +199,7 @@ export default async (req: Request) => {
       parts.push({ text: `Analysis Task: ${description} ${referenceUrl || ''}` });
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-pro", // Use Pro for the complex synthesis and JSON mapping
+        model: "gemini-2.5-pro", // Use Pro for the complex synthesis and JSON mapping
         contents: { parts },
         config: {
           systemInstruction,
@@ -216,7 +216,7 @@ export default async (req: Request) => {
     if (action === 'chat') {
         const { context, history, question } = payload;
         const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             contents: `As SurplusMatchmaker, answer based on this context: ${context.itemAnalysis}. Last ${history.length} msgs. Client Question: ${question}`,
         });
         return new Response(JSON.stringify({ text: response.text }), { headers: { "Content-Type": "application/json" } });
