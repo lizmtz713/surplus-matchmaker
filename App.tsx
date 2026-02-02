@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PackageSearch, Boxes, ArrowRight, Activity, CheckCircle2, Loader2, Search, BrainCircuit, PenTool, AlertTriangle } from 'lucide-react';
-import { BuyerDatabase } from './components/BuyerDatabase';
-import { InputForm } from './components/InputForm';
-import { ResultCard } from './components/ResultCard';
-import { Logo } from './components/Logo';
-import { matchItemToBuyer } from './services/geminiService';
-import { MatchResult, Buyer } from './types';
-import { BUYERS as INITIAL_BUYERS } from './constants';
+import { BuyerDatabase } from './components/BuyerDatabase.tsx';
+import { InputForm } from './components/InputForm.tsx';
+import { ResultCard } from './components/ResultCard.tsx';
+import { Logo } from './components/Logo.tsx';
+import { matchItemToBuyer } from './services/geminiService.ts';
+import { MatchResult, Buyer } from './types.ts';
+import { BUYERS as INITIAL_BUYERS } from './constants.ts';
 
 const LOADING_STEPS = [
-  { message: "Analyzing item specifications...", icon: PackageSearch, duration: 2000 },
-  { message: "Conducting global market research (Search & Maps)...", icon: Search, duration: 4000 },
-  { message: "Scoring internal buyer network...", icon: BrainCircuit, duration: 2500 },
-  { message: "Drafting high-conversion outreach...", icon: PenTool, duration: 2000 }
+  { message: "Analyzing item specifications...", icon: PackageSearch, duration: 1500 },
+  { message: "Conducting global market research (Search & Maps)...", icon: Search, duration: 2500 },
+  { message: "Scoring internal buyer network...", icon: BrainCircuit, duration: 1500 },
+  { message: "Drafting high-conversion outreach...", icon: PenTool, duration: 1500 }
 ];
 
 const App: React.FC = () => {
@@ -21,10 +21,8 @@ const App: React.FC = () => {
   const [result, setResult] = useState<MatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Reference for Auto-scrolling to results
   const resultsRef = useRef<HTMLDivElement>(null);
   
-  // Persistence Logic for Buyers
   const [buyers, setBuyers] = useState<Buyer[]>(() => {
     try {
       const saved = localStorage.getItem('surplus_buyer_db');
@@ -35,7 +33,6 @@ const App: React.FC = () => {
     }
   });
 
-  // Save buyers on change
   useEffect(() => {
     try {
       localStorage.setItem('surplus_buyer_db', JSON.stringify(buyers));
@@ -44,8 +41,6 @@ const App: React.FC = () => {
     }
   }, [buyers]);
   
-  // New State for Paywall Simulation with Local Storage Persistence
-  // CHANGED KEY TO V2 TO FORCE RESET FOR USER
   const [isProMode, setIsProMode] = useState(() => {
     try {
       const saved = localStorage.getItem('surplus_pro_mode_v2');
@@ -55,7 +50,6 @@ const App: React.FC = () => {
     }
   });
 
-  // Save to local storage whenever isProMode changes
   useEffect(() => {
     try {
       localStorage.setItem('surplus_pro_mode_v2', isProMode.toString());
@@ -89,10 +83,8 @@ const App: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [loading]);
 
-  // Auto-scroll to results when analysis is done
   useEffect(() => {
     if (result && !loading && resultsRef.current) {
-      // Small timeout to ensure DOM is fully rendered
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
@@ -150,13 +142,12 @@ const App: React.FC = () => {
         <div className="flex flex-wrap items-center gap-4 justify-end">
           <div className="hidden md:flex items-center gap-2 text-sm text-amber-500 font-medium bg-amber-500/10 px-4 py-2 rounded-full border border-amber-500/20">
             <Activity className="w-4 h-4" />
-            <span>Gemini 2.5 + Search & Maps</span>
+            <span>Gemini 3 Ultra-Low Latency</span>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Context & Input */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -168,7 +159,7 @@ const App: React.FC = () => {
                 <h2 className="text-lg font-semibold text-white">New Item Entry</h2>
               </div>
               <p className="text-slate-400 text-sm mb-6">
-                Upload photos, describe a single item, or paste a <strong>full inventory list</strong>. SurplusMatchmaker will perform live valuation, identify top buyers, and generate your sales cadence.
+                Upload photos, describe an item, or paste an inventory list. SurplusMatchmaker performs live valuation and buyer routing.
               </p>
               <InputForm onSubmit={handleMatchRequest} isLoading={loading} />
             </div>
@@ -182,7 +173,6 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Right Column: Results */}
         <div className="lg:col-span-8" ref={resultsRef}>
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-6 rounded-xl mb-6 animate-fade-in flex flex-col gap-4">
@@ -198,8 +188,8 @@ const App: React.FC = () => {
                  {error}
               </div>
               <p className="text-xs text-red-300/80">
-                 Tip: This usually happens if the server times out (took longer than 10s) or if the API Key is invalid. 
-                 Try reducing the image size or description length and try again.
+                 Tip: This usually happens if the server times out or the API key is invalid. 
+                 We have switched to ultra-low latency models to prevent this.
               </p>
             </div>
           )}

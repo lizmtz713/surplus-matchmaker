@@ -1,7 +1,7 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
 import { Upload, X, Search, FileText, Truck, MapPin, Scale, Ruler, ChevronDown, ChevronUp, Anchor, ShieldCheck, ArrowUpFromLine, Plus, FileSpreadsheet, Calendar, Clock, UserSquare2, AlertCircle, Link as LinkIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { MAX_IMAGE_SIZE_MB, SUPPORTED_IMAGE_TYPES } from '../constants';
+import { MAX_IMAGE_SIZE_MB, SUPPORTED_IMAGE_TYPES } from '../constants.ts';
 
 interface InputFormProps {
   onSubmit: (

@@ -20,11 +20,11 @@ async function performMarketResearch(ai: GoogleGenAI, description: string, locat
   `;
 
   try {
-    // 6 Second Timeout for Research to prevent overall Function Timeout
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Research Timeout")), 6000));
+    // 5 Second Timeout for Research to ensure we have time for the next step
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Research Timeout")), 5000));
     
     const apiPromise = ai.models.generateContent({
-      model: "gemini-2.5-flash", // Upgraded to Gemini 3 Flash
+      model: "gemini-3-flash-preview", 
       contents: researchPrompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -199,14 +199,14 @@ export default async (req: Request) => {
       parts.push({ text: `Analysis Task: ${description} ${referenceUrl || ''}` });
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro", // Use Pro for the complex synthesis and JSON mapping
+        model: "gemini-3-flash-preview", // Use Flash for maximum speed to prevent Netlify timeouts
         contents: { parts },
         config: {
           systemInstruction,
           responseMimeType: 'application/json',
           responseSchema: matchResultSchema,
-          temperature: 0.1, // Low temperature for consistent JSON
-          thinkingConfig: { thinkingBudget: 10000 } // Reserve budget for high-quality reasoning
+          temperature: 0.1,
+          thinkingConfig: { thinkingBudget: 0 } // Disable thinking to ensure immediate response
         },
       });
 
@@ -216,8 +216,11 @@ export default async (req: Request) => {
     if (action === 'chat') {
         const { context, history, question } = payload;
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: `As SurplusMatchmaker, answer based on this context: ${context.itemAnalysis}. Last ${history.length} msgs. Client Question: ${question}`,
+            config: {
+                thinkingConfig: { thinkingBudget: 0 }
+            }
         });
         return new Response(JSON.stringify({ text: response.text }), { headers: { "Content-Type": "application/json" } });
     }

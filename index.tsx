@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './App.tsx';
 
 // Targeted the unique ID 'surplus-matchmaker-root' to bypass any legacy conflicts
 const rootElement = document.getElementById('surplus-matchmaker-root');

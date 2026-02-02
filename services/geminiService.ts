@@ -1,7 +1,7 @@
-import { MatchResult, Buyer, ChatMessage } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { MatchResult, Buyer, ChatMessage } from "../types.ts";
 
-// Helper to resize and compress image before base64 conversion
-export const fileToGenerativePart = async (file: File): Promise<{ mimeType: string, data: string }> => {
+export const fileToGenerativePart = async (file: File): Promise<{ inlineData: { mimeType: string, data: string } }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -10,35 +10,18 @@ export const fileToGenerativePart = async (file: File): Promise<{ mimeType: stri
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        
-        // AGGRESSIVE COMPRESSION for Speed
-        const MAX_WIDTH = 600; 
-        const MAX_HEIGHT = 600;
-
+        const MAX_DIM = 800;
         if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
+          if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
         } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
+          if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
-        // Compress to JPEG 0.6 quality
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        const base64Data = dataUrl.split(',')[1];
-        resolve({
-          mimeType: 'image/jpeg',
-          data: base64Data
-        });
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        resolve({ inlineData: { mimeType: 'image/jpeg', data: dataUrl.split(',')[1] } });
       };
       img.onerror = reject;
       img.src = event.target?.result as string;
@@ -46,6 +29,69 @@ export const fileToGenerativePart = async (file: File): Promise<{ mimeType: stri
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
+
+const matchResultSchema = {
+  type: Type.OBJECT,
+  properties: {
+    itemAnalysis: { type: Type.STRING },
+    valuation: {
+      type: Type.OBJECT,
+      properties: {
+        scrapValue: { type: Type.STRING },
+        scrapDetails: { type: Type.STRING },
+        surplusValue: { type: Type.STRING },
+        retailValue: { type: Type.STRING },
+        marketInsights: { type: Type.STRING },
+      },
+      required: ["scrapValue", "surplusValue", "retailValue"]
+    },
+    topBuyers: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          score: { type: Type.NUMBER },
+          reason: { type: Type.STRING },
+          location: { type: Type.STRING },
+          phone: { type: Type.STRING },
+          email: { type: Type.STRING },
+          website: { type: Type.STRING }
+        }
+      }
+    },
+    internalBuyerMatches: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          score: { type: Type.NUMBER },
+          reason: { type: Type.STRING }
+        }
+      }
+    },
+    cadence: {
+      type: Type.OBJECT,
+      properties: {
+        step1_pitch: { type: Type.OBJECT, properties: { subject: { type: Type.STRING }, body: { type: Type.STRING } } },
+        step2_nudge: { type: Type.OBJECT, properties: { subject: { type: Type.STRING }, body: { type: Type.STRING } } },
+        step3_sms: { type: Type.STRING },
+        step4_breakup: { type: Type.OBJECT, properties: { subject: { type: Type.STRING }, body: { type: Type.STRING } } },
+        phone_script: {
+          type: Type.OBJECT,
+          properties: {
+            opener: { type: Type.STRING },
+            pitch: { type: Type.STRING },
+            objection_handling: { type: Type.STRING },
+            closing: { type: Type.STRING }
+          }
+        }
+      }
+    }
+  },
+  required: ["itemAnalysis", "valuation", "topBuyers", "cadence"]
 };
 
 export const matchItemToBuyer = async (
@@ -56,74 +102,35 @@ export const matchItemToBuyer = async (
   logistics: any,
   referenceUrl: string
 ): Promise<MatchResult> => {
-  
-  // 1. Prepare Data (Resize Images)
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API Key is missing from environment.");
+
+  const ai = new GoogleGenAI({ apiKey });
   const imageParts = await Promise.all(imageFiles.map(fileToGenerativePart));
+  const buyerSnippet = buyers.slice(0, 10).map(b => `${b.name}: ${b.preferences}`).join('\n');
 
-  try {
-    // STEP 1: RESEARCH PHASE
-    // Note: If this fails, we catch it inside the backend and return a partial result, 
-    // or we catch it here.
-    let researchResult = { text: "Research skipped or timed out.", sources: [] };
-    
-    try {
-        const researchResponse = await fetch('/.netlify/functions/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'research',
-                payload: {
-                    description,
-                    location: logistics.origin,
-                    referenceUrl
-                }
-            })
-        });
-
-        if (researchResponse.ok) {
-            researchResult = await researchResponse.json();
-        } else {
-            console.warn("Research phase warning:", await researchResponse.text());
-        }
-    } catch (e) {
-        console.warn("Research phase network error (continuing to synthesis):", e);
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: {
+      parts: [
+        ...imageParts,
+        { text: `Analyze this surplus item. Description: ${description}. Condition: ${condition}. URL: ${referenceUrl}. 
+        Match against these internal buyers: 
+        ${buyerSnippet}
+        
+        Provide a detailed industrial surplus valuation report.` }
+      ]
+    },
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: matchResultSchema,
+      temperature: 0.1
     }
+  });
 
-    // STEP 2: SYNTHESIS PHASE
-    const synthesisResponse = await fetch('/.netlify/functions/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: 'synthesize',
-            payload: {
-                description,
-                condition,
-                images: imageParts,
-                buyers,
-                logistics,
-                referenceUrl,
-                researchText: researchResult.text // Pass the result (or fallback text)
-            }
-        })
-    });
-
-    if (!synthesisResponse.ok) {
-        const errorText = await synthesisResponse.text();
-        throw new Error(`Synthesis Failed (${synthesisResponse.status}): ${errorText}`);
-    }
-
-    const result = await synthesisResponse.json();
-    
-    // Merge sources back into result
-    return {
-        ...result,
-        researchSources: researchResult.sources || []
-    } as MatchResult;
-
-  } catch (error: any) {
-    console.error("Analysis Error:", error);
-    throw new Error(error.message || "Connection to SurplusAI Server Failed.");
-  }
+  const text = response.text;
+  if (!text) throw new Error("No response from AI.");
+  return JSON.parse(text) as MatchResult;
 };
 
 export const askSurplusAI = async (
@@ -131,31 +138,15 @@ export const askSurplusAI = async (
   history: ChatMessage[],
   question: string
 ): Promise<string> => {
-  try {
-    const response = await fetch('/.netlify/functions/gemini', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            action: 'chat',
-            payload: {
-                context,
-                history,
-                question
-            }
-        })
-    });
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return "API Key missing.";
 
-    if (!response.ok) {
-         throw new Error("Chat server error");
-    }
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Context: ${context.itemAnalysis}. Question: ${question}`,
+    config: { temperature: 0.7 }
+  });
 
-    const data = await response.json();
-    return data.text || "I'm not sure how to answer that.";
-
-  } catch (error) {
-    console.error("Chat Error:", error);
-    return "I'm having trouble connecting to the consultation server right now.";
-  }
+  return response.text || "I'm not sure about that.";
 };

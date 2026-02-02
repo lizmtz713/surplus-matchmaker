@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Loader2, MessageSquareText } from 'lucide-react';
-import { MatchResult, ChatMessage } from '../types';
-import { askSurplusAI } from '../services/geminiService';
+import { MatchResult, ChatMessage } from '../types.ts';
+import { askSurplusAI } from '../services/geminiService.ts';
 
 interface ConsultantChatProps {
   result: MatchResult;

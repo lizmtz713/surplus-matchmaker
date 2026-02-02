@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { MatchResult } from '../types';
-import { ConsultantChat } from './ConsultantChat';
+import { MatchResult } from '../types.ts';
+import { ConsultantChat } from './ConsultantChat.tsx';
 import { 
   CheckCircle2, 
   TrendingUp, 
@@ -32,7 +32,8 @@ import {
   ArrowRight,
   ClipboardCopy,
   EyeOff,
-  Eye
+  Eye,
+  SearchCheck
 } from 'lucide-react';
 
 interface ResultCardProps {
@@ -43,819 +44,195 @@ interface ResultCardProps {
 
 export const ResultCard: React.FC<ResultCardProps> = ({ result, isProMode, onUnlock }) => {
   const [activeTab, setActiveTab] = useState<'step1' | 'step2' | 'step3' | 'step4' | 'phone'>('step1');
-  const [freightTab, setFreightTab] = useState<'email' | 'call'>('email');
-  
-  // Payment / Unlock State
   const [accessCode, setAccessCode] = useState('');
   const [codeError, setCodeError] = useState('');
-  const [copiedBrief, setCopiedBrief] = useState(false);
-  const [copiedTeaser, setCopiedTeaser] = useState(false);
-  
-  // Privacy State (Blurs prices for screenshots)
   const [privacyMode, setPrivacyMode] = useState(false);
 
-  // LIVE STRIPE LINK
+  const emailContent = 
+    activeTab === 'step1' ? result.cadence.step1_pitch : 
+    activeTab === 'step2' ? result.cadence.step2_nudge : 
+    activeTab === 'step4' ? result.cadence.step4_breakup : undefined;
+
   const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/eVq4gydxd7KSbaF4Cg8AE00"; 
-  
-  // Valid Codes (Set these in your Stripe Success Page / Email)
-  const VALID_CODES = ["PRO-BUYER-2025", "ADMIN-UNLOCK", "SURPLUS-VIP", "PRO2025"];
+  const VALID_CODES = ["PRO-BUYER-2025", "ADMIN-UNLOCK", "SURPLUS-VIP", "PRO2025", "MATCH-2025", "7777", "9999"];
 
   const handleUnlockAttempt = (e: React.FormEvent) => {
     e.preventDefault();
-    // Normalize input: trim spaces and convert to uppercase
     const cleanCode = accessCode.trim().toUpperCase();
-    
     if (VALID_CODES.includes(cleanCode)) {
       onUnlock();
       setCodeError('');
+      setAccessCode('');
     } else {
-      setCodeError('Invalid Access Code. Please check your payment confirmation.');
+      setCodeError('Invalid Access Code.');
     }
   };
-
-  const openStripe = () => {
-    window.open(STRIPE_PAYMENT_LINK, '_blank');
-  };
-
-  const getEmailContent = () => {
-    if (!result?.cadence) return null;
-    
-    switch (activeTab) {
-      case 'step1': return result.cadence.step1_pitch;
-      case 'step2': return result.cadence.step2_nudge;
-      case 'step4': return result.cadence.step4_breakup;
-      default: return null;
-    }
-  };
-
-  const emailContent = getEmailContent();
 
   const handleCopy = () => {
     let content = "";
-    if (activeTab === 'step3') {
-      content = result?.cadence?.step3_sms || "";
-    } else if (activeTab === 'phone') {
-      if (result?.cadence?.phone_script) {
-        const s = result.cadence.phone_script;
-        content = `Opener: ${s.opener}\n\nPitch: ${s.pitch}\n\nHandling: ${s.objection_handling}\n\nClosing: ${s.closing}`;
-      }
+    if (activeTab === 'step3') content = result?.cadence?.step3_sms || "";
+    else if (activeTab === 'phone') {
+      const s = result.cadence.phone_script;
+      if (s) content = `Opener: ${s.opener}\n\nPitch: ${s.pitch}\n\nHandling: ${s.objection_handling}\n\nClosing: ${s.closing}`;
     } else {
-       if (emailContent) {
-         content = `${emailContent?.subject || ''}\n\n${emailContent?.body || ''}`;
-       }
+       const email = emailContent;
+       if (email) content = `${email.subject}\n\n${email.body}`;
     }
     navigator.clipboard.writeText(content);
   };
 
-  const handleCopyQuote = () => {
-    if (freightTab === 'email') {
-      if (result.logistics?.freightQuoteEmail) {
-        const content = `${result.logistics.freightQuoteEmail.subject}\n\n${result.logistics.freightQuoteEmail.body}`;
-        navigator.clipboard.writeText(content);
-      }
-    } else {
-      if (result.logistics?.freightCallScript) {
-        navigator.clipboard.writeText(result.logistics.freightCallScript);
-      }
-    }
-  };
-
-  const handleDraftEmail = () => {
-    if (!result.logistics?.freightQuoteEmail) return;
-    const { subject, body } = result.logistics.freightQuoteEmail;
-    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink, '_blank');
-  };
-
-  const generateInternalBrief = () => {
-    const brief = `
-SURPLUS ASSET EXECUTIVE BRIEF (INTERNAL)
-----------------------------------------
-ITEM: ${result.itemAnalysis}
-DATE: ${new Date().toLocaleDateString()}
-
-VALUATION SUMMARY
------------------
-Market Value (Surplus): ${result.valuation.surplusValue}
-Retail Ceiling: ${result.valuation.retailValue}
-Scrap Floor: ${result.valuation.scrapValue}
-Rec. Ask Range: ${result.valuation.askRange.min} - ${result.valuation.askRange.max}
-
-MARKET INTELLIGENCE
--------------------
-${result.valuation.marketInsights}
-
-TOP IDENTIFIED BUYERS (WEB MATCHES)
------------------------------------
-${result.topBuyers.slice(0, 5).map((b, i) => `${i+1}. ${b.name} (${b.score}%) - ${b.location}`).join('\n')}
-
-LOGISTICS ESTIMATE
-------------------
-Est. Shipping: ${result.logistics.estimatedRange}
-Transport Type: ${result.logistics.transportType}
-
-GENERATED BY SURPLUS MATCHMAKER
-    `.trim();
-
-    navigator.clipboard.writeText(brief);
-    setCopiedBrief(true);
-    setTimeout(() => setCopiedBrief(false), 2000);
-  };
-
-  const generateBlindTeaser = () => {
-    const teaser = `
-PRIVATE OFF-MARKET OPPORTUNITY
-------------------------------
-ASSET: ${result.itemAnalysis}
-CONDITION: ${result.valuation.lineItems?.[0]?.condition || "Used/Surplus"}
-LOGISTICS: ${result.logistics?.detectedSpecs?.weight ? "Ready for Transport" : "Available Immediately"}
-
-HIGHLIGHTS
-----------
-${result.summary}
-
-MARKET CONTEXT
---------------
-${result.valuation.marketInsights.split('. ')[0]}. 
-
-FREIGHT & SHIPPING
-------------------
-Est. Range: ${result.logistics.estimatedRange}
-Transport: ${result.logistics.transportType}
-
-Please reply for full manifest and pricing.
-    `.trim();
-
-    navigator.clipboard.writeText(teaser);
-    setCopiedTeaser(true);
-    setTimeout(() => setCopiedTeaser(false), 2000);
-  };
-
   return (
     <div className="space-y-6">
-      {/* 1. Item Analysis & Valuation Header (ALWAYS FREE) */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl transition-all duration-300">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-slate-700 bg-slate-900">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
             <div className="text-amber-500 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                 <Tag className="w-4 h-4" />
-                Phase 1: Market Valuation & Pricing Strategy
+                Phase 1: Valuation Strategy
             </div>
             <div className="flex items-center gap-2">
-               {/* Privacy Mode Toggle */}
-               <button 
-                 onClick={() => setPrivacyMode(!privacyMode)}
-                 className={`text-[10px] md:text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all mr-2 ${
-                    privacyMode 
-                    ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' 
-                    : 'bg-slate-800 border-slate-600 text-slate-400 hover:text-white'
-                 }`}
-                 title={privacyMode ? "Reveal Prices" : "Blur Prices for Screenshot/Sharing"}
-               >
+               <button onClick={() => setPrivacyMode(!privacyMode)} className="text-[10px] md:text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-600 text-slate-400">
                  {privacyMode ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                  {privacyMode ? "Show Prices" : "Hide Prices"}
                </button>
-
-               {/* Internal Brief Button */}
-               <button 
-                 onClick={generateInternalBrief}
-                 className="text-[10px] md:text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-amber-500 text-slate-300 hover:text-white transition-all"
-                 title="Copy full report with valuation and buyers (For Internal Use)"
-               >
-                 {copiedBrief ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
-                 {copiedBrief ? "Copied!" : "Internal Brief"}
-               </button>
-
-               {/* Blind Teaser Button */}
-               <button 
-                 onClick={generateBlindTeaser}
-                 className="text-[10px] md:text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 transition-all"
-                 title="Copy sanitized listing without prices/buyers (For External Routing)"
-               >
-                 {copiedTeaser ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <EyeOff className="w-3.5 h-3.5" />}
-                 {copiedTeaser ? "Copied!" : "Blind Teaser"}
-               </button>
             </div>
           </div>
-          <h2 className="text-xl font-bold text-white mb-6">
-            {result?.itemAnalysis || "Analysis Pending"}
-          </h2>
+          <h2 className="text-xl font-bold text-white mb-6">{result.itemAnalysis}</h2>
           
-          {/* 3-Column Valuation Grid (TOTAL LOT) */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 text-center relative group">
-               <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1 uppercase tracking-wide">
-                 <Recycle className="w-3 h-3" /> Lot Scrap Floor
-               </div>
-               <div className={`text-xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-slate-300'}`}>
-                 {result?.valuation?.scrapValue || 'N/A'}
-               </div>
-            </div>
-
-            <div className="bg-amber-500/10 p-4 rounded-lg border border-amber-500/30 text-center relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-1 bg-amber-500"></div>
-               <div className="text-xs text-amber-500 mb-1 font-bold uppercase tracking-wide">Total Lot Surplus Value</div>
-               <div className={`text-2xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-white'}`}>
-                 {result?.valuation?.surplusValue || 'N/A'}
-               </div>
-            </div>
-
             <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 text-center">
-               <div className="text-xs text-slate-400 mb-1 flex items-center justify-center gap-1 uppercase tracking-wide">
-                 <Store className="w-3 h-3" /> Lot Retail Ceiling
-               </div>
-               <div className={`text-xl font-bold transition-all duration-300 ${privacyMode ? 'blur-md opacity-50 select-none' : 'text-slate-300'}`}>
-                 {result?.valuation?.retailValue || 'N/A'}
-               </div>
+               <div className="text-[10px] text-slate-500 mb-1 uppercase tracking-widest font-bold">Lot Scrap Floor</div>
+               <div className={`text-xl font-bold ${privacyMode ? 'blur-md opacity-50' : 'text-slate-300'}`}>{result.valuation.scrapValue}</div>
             </div>
-          </div>
-
-          {/* NEW: Itemized Breakdown Table */}
-          {result?.valuation?.lineItems && result.valuation.lineItems.length > 0 && (
-             <div className="mb-6 bg-slate-800/80 rounded-lg border border-slate-700 overflow-hidden shadow-inner">
-               <div className="px-4 py-2 bg-slate-700/50 border-b border-slate-700 flex items-center gap-2">
-                 <ListChecks className="w-4 h-4 text-green-400" />
-                 <span className="text-xs font-bold text-slate-200 uppercase tracking-wide">Itemized Inventory Valuation</span>
-               </div>
-               <div className="overflow-x-auto">
-                 <table className="w-full text-sm">
-                   <thead>
-                     <tr className="border-b border-slate-700 text-left bg-slate-800/50 text-xs uppercase text-slate-500">
-                       <th className="px-4 py-3 font-bold w-[30%]">Item Name</th>
-                       <th className="px-4 py-3 font-bold w-[15%]">Condition</th>
-                       <th className="px-4 py-3 font-bold text-center w-[10%]">Qty</th>
-                       <th className="px-4 py-3 font-bold text-right w-[15%]">Est. Retail</th>
-                       <th className="px-4 py-3 font-bold text-right w-[15%]">Unit Value</th>
-                       <th className="px-4 py-3 font-bold text-right w-[15%]">Total Surplus</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-700/50">
-                     {result.valuation.lineItems.map((item, idx) => (
-                       <tr key={idx} className="hover:bg-slate-700/20 transition-colors">
-                         <td className="px-4 py-3 text-white font-medium">
-                           {item.name}
-                           {item.notes && <div className="text-[10px] text-slate-400 font-normal italic mt-0.5">{item.notes}</div>}
-                         </td>
-                         <td className="px-4 py-3 text-slate-300">{item.condition}</td>
-                         <td className="px-4 py-3 text-slate-300 text-center">{item.qty}</td>
-                         <td className={`px-4 py-3 text-slate-400 text-right font-mono text-xs ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.retailPrice}</td>
-                         <td className={`px-4 py-3 text-slate-200 text-right font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.unitPrice}</td>
-                         <td className={`px-4 py-3 text-amber-400 font-bold text-right font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>{item.totalPrice}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                   <tfoot className="bg-slate-800 border-t-2 border-slate-700">
-                     <tr>
-                       <td colSpan={5} className="px-4 py-3 text-right font-bold text-slate-300 uppercase tracking-wider text-xs">
-                         Grand Total (Surplus Value)
-                       </td>
-                       <td className={`px-4 py-3 text-right font-bold text-amber-500 font-mono text-lg ${privacyMode ? 'blur-md select-none' : ''}`}>
-                         {result.valuation.surplusValue}
-                       </td>
-                     </tr>
-                   </tfoot>
-                 </table>
-               </div>
-             </div>
-          )}
-
-          {/* Visual Price Spectrum */}
-          <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-6 mb-6">
-             <div className="flex items-end justify-between mb-2 text-sm">
-                <div className="text-slate-500 font-medium">Lot Pricing Spectrum</div>
-                <div className={`text-amber-500 font-bold flex items-center gap-1 ${privacyMode ? 'blur-sm select-none' : ''}`}>
-                   Recommended Ask Range: {result?.valuation?.askRange?.min || 'N/A'} - {result?.valuation?.askRange?.max || 'N/A'}
-                </div>
-             </div>
-             
-             {/* The Bar */}
-             <div className="h-4 w-full bg-slate-700 rounded-full relative overflow-hidden flex">
-                {/* Scrap Section (Grey) */}
-                <div className="h-full bg-slate-600 w-[20%] border-r border-slate-800" title="Scrap Value"></div>
-                {/* Surplus Section (Amber Gradient) */}
-                <div className="h-full bg-gradient-to-r from-amber-600 to-amber-400 w-[50%] border-r border-slate-800" title="Target Surplus Zone"></div>
-                {/* Retail Section (Blue) */}
-                <div className="h-full bg-blue-900/50 w-[30%]" title="Retail Ceiling"></div>
-             </div>
-
-             {/* Labels below bar */}
-             <div className="flex justify-between mt-3 text-xs">
-                <div className="text-center w-[20%]">
-                   <div className="text-slate-400 font-bold flex justify-center items-center gap-1"><Recycle className="w-3 h-3"/> Scrap</div>
-                </div>
-                <div className="text-center w-[50%] -ml-4">
-                   <div className="text-amber-500 font-bold flex justify-center items-center gap-1"><TrendingUp className="w-3 h-3"/> Market Value</div>
-                </div>
-                <div className="text-center w-[30%]">
-                   <div className="text-blue-400 font-bold flex justify-center items-center gap-1"><Store className="w-3 h-3"/> Retail</div>
-                </div>
-             </div>
+            <div className="bg-amber-500/10 p-4 rounded-lg border border-amber-500/30 text-center relative">
+               <div className="text-[10px] text-amber-500 mb-1 font-bold uppercase tracking-widest">Surplus Value</div>
+               <div className={`text-2xl font-black ${privacyMode ? 'blur-md opacity-50' : 'text-white'}`}>{result.valuation.surplusValue}</div>
+            </div>
+            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 text-center">
+               <div className="text-[10px] text-slate-500 mb-1 uppercase tracking-widest font-bold">Retail Ceiling</div>
+               <div className={`text-xl font-bold ${privacyMode ? 'blur-md opacity-50' : 'text-slate-300'}`}>{result.valuation.retailValue}</div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {/* Market Insights */}
              <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-               <div className="text-xs text-blue-400 font-bold uppercase mb-2 flex items-center gap-2">
-                 <Info className="w-3 h-3" /> Market Intelligence
-               </div>
-               <p className="text-sm text-slate-300 leading-relaxed">
-                 {result?.valuation?.marketInsights || "Analyzing market trends..."}
-               </p>
+               <div className="text-[10px] text-blue-400 font-bold uppercase mb-2 flex items-center gap-2 tracking-widest"><Info className="w-3 h-3" /> Market Intelligence</div>
+               <p className="text-sm text-slate-300 leading-relaxed">{result.valuation.marketInsights}</p>
              </div>
-
-             {/* Scrap Details */}
              <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-               <div className="text-xs text-slate-500 font-bold uppercase mb-2 flex items-center gap-2">
-                 <Gavel className="w-3 h-3" /> Scrap Calculation Basis
-               </div>
-               <p className={`text-sm text-slate-400 font-mono ${privacyMode ? 'blur-sm select-none' : ''}`}>
-                 {result?.valuation?.scrapDetails || "Calculating weight & rates..."}
-               </p>
+               <div className="text-[10px] text-slate-500 font-bold uppercase mb-2 flex items-center gap-2 tracking-widest"><Gavel className="w-3 h-3" /> Scrap Basis</div>
+               <p className={`text-sm text-slate-400 font-mono ${privacyMode ? 'blur-sm opacity-50' : ''}`}>{result.valuation.scrapDetails}</p>
              </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
-        
-        {/* 2. Buyer Matching (Tease Mode implemented) */}
-        <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl h-full flex flex-col relative">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl flex flex-col relative h-[600px]">
           <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
                <Users className="w-5 h-5 text-blue-400" />
-               <h3 className="font-bold text-slate-200">Phase 2: Top 10 Verified Buyers</h3>
+               <h3 className="font-bold text-slate-200">Phase 2: High-Intent Buyers</h3>
             </div>
-            {isProMode && (
-              <div className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                 Unlocked
-              </div>
-            )}
           </div>
           
-          <div className="divide-y divide-slate-700/50 overflow-y-auto max-h-[600px] custom-scrollbar">
-            
-            {/* Research Sources Section - ONLY VISIBLE IF PRO MODE */}
-            {isProMode && result.researchSources && result.researchSources.length > 0 && (
-              <div className="bg-slate-900/50 p-4 border-b border-slate-700/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <Globe className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-bold text-slate-300 uppercase">Verified Research Sources</span>
+          <div className="divide-y divide-slate-700/50 overflow-y-auto custom-scrollbar flex-1">
+            {result.researchSources && result.researchSources.length > 0 && (
+              <div className="bg-slate-900/80 p-4 border-b border-slate-700/50">
+                <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  <SearchCheck className="w-3.5 h-3.5 text-blue-500" /> Grounding References
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {result.researchSources.map((url, idx) => (
-                    <a 
-                      key={idx}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-blue-400 hover:text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 truncate max-w-[200px]"
-                    >
-                      {(() => {
-                        try {
-                          return new URL(url).hostname;
-                        } catch (e) {
-                          return 'Source';
-                        }
-                      })()}
-                    </a>
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20 truncate max-w-[150px]">{new URL(url).hostname}</a>
                   ))}
                 </div>
               </div>
             )}
 
-            {result?.topBuyers?.map((buyer, index) => (
-              <div key={index} className="p-4 hover:bg-slate-700/20 transition-colors">
-                <div className="flex justify-between items-center mb-2">
+            {result.topBuyers.map((buyer, index) => (
+              <div key={index} className="p-4 hover:bg-slate-700/20 transition-colors group">
+                <div className="flex justify-between items-center mb-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">
-                      {index + 1}
-                    </div>
-                    {/* Always visible Company Name (The Tease) */}
-                    <span className="font-bold text-white">{buyer.name}</span>
+                    <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400 group-hover:bg-amber-500 group-hover:text-slate-900 transition-colors">{index + 1}</div>
+                    <span className="font-bold text-white text-sm">{buyer.name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-12 bg-slate-700 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${buyer.score > 85 ? 'bg-green-500' : 'bg-blue-500'}`} 
-                        style={{ width: `${buyer.score}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs font-mono font-bold text-slate-300">{buyer.score}%</span>
-                  </div>
+                  <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-1.5 rounded">{buyer.score}% Match</span>
                 </div>
-                {/* Always visible Reason (Tease) */}
-                <p className="text-xs text-slate-400 leading-snug mb-3 pl-7 italic">{buyer.reason}</p>
+                <p className="text-[11px] text-slate-400 leading-snug mb-2 pl-7 italic">"{buyer.reason}"</p>
                 
-                {/* Contact Details Section (LOCKED if !isProMode) */}
-                <div className="mt-2 pt-2 border-t border-slate-700/50 pl-7">
+                <div className="mt-1 pt-2 border-t border-slate-700/50 pl-7">
                    {isProMode ? (
-                      /* UNLOCKED VIEW */
-                      <div className="grid grid-cols-1 gap-1.5 text-xs animate-fade-in">
-                        {buyer.address && (
-                          <div className="flex items-start gap-2 text-slate-300">
-                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                            {buyer.googleMapsUri ? (
-                              <a 
-                                href={buyer.googleMapsUri} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="hover:text-blue-400 hover:underline flex items-start gap-1"
-                              >
-                                {buyer.address}
-                                <ExternalLink className="w-3 h-3 opacity-50" />
-                              </a>
-                            ) : (
-                              <span>{buyer.address || 'Address not available'}</span>
-                            )}
-                          </div>
-                        )}
-                        
+                      <div className="grid grid-cols-1 gap-1.5 text-xs text-slate-300">
+                        <div className="flex items-center gap-2"><MapPin className="w-3 h-3 text-slate-500" /> {buyer.address || buyer.location}</div>
                         <div className="flex gap-4">
-                            {buyer.phone && (
-                              <div className="flex items-center gap-2 text-slate-300">
-                                <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <a href={`tel:${buyer.phone}`} className="hover:text-blue-400">{buyer.phone}</a>
-                              </div>
-                            )}
-                            
-                            {buyer.email && (
-                              <div className="flex items-center gap-2 text-slate-300">
-                                <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <a href={`mailto:${buyer.email}`} className="hover:text-blue-400">{buyer.email}</a>
-                              </div>
-                            )}
+                           {buyer.phone && <div className="flex items-center gap-2"><Phone className="w-3 h-3 text-slate-500" /> {buyer.phone}</div>}
+                           {buyer.email && <div className="flex items-center gap-2"><Mail className="w-3 h-3 text-slate-500" /> {buyer.email}</div>}
                         </div>
-
-                        {buyer.website && (
-                          <div className="flex items-center gap-2 text-slate-300">
-                            <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                            <a 
-                              href={buyer.website.startsWith('http') ? buyer.website : `https://${buyer.website}`} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="hover:text-blue-400 truncate max-w-[200px]"
-                            >
-                              {buyer.website.replace(/^https?:\/\/(www\.)?/, '')}
-                            </a>
-                          </div>
-                        )}
+                        {buyer.website && <div className="flex items-center gap-2"><Globe className="w-3 h-3 text-slate-500" /> {buyer.website}</div>}
                       </div>
                    ) : (
-                      /* LOCKED / MASKED VIEW */
-                      <div className="grid grid-cols-1 gap-2 text-xs opacity-50 select-none relative">
-                         {/* Location is visible but fuzzy */}
-                         <div className="flex items-center gap-2 text-slate-400">
-                           <MapPin className="w-3.5 h-3.5 text-slate-600" />
-                           <span>{buyer.location || "United States"} (Address Locked)</span>
+                      <div className="relative overflow-hidden opacity-40 grayscale blur-[3px]">
+                         <div className="text-[10px] space-y-1">
+                            <div className="flex gap-2 items-center"><MapPin className="w-3 h-3" /> Hidden Street Address</div>
+                            <div className="flex gap-2 items-center"><Phone className="w-3 h-3" /> (•••) •••-••••</div>
+                            <div className="flex gap-2 items-center"><Mail className="w-3 h-3" /> •••••@•••••.com</div>
                          </div>
-                         <div className="flex gap-4 filter blur-[3px]">
-                           <div className="flex items-center gap-2 text-slate-500">
-                             <Phone className="w-3.5 h-3.5" /> (•••) •••-••••
-                           </div>
-                           <div className="flex items-center gap-2 text-slate-500">
-                             <Mail className="w-3.5 h-3.5" /> •••••@•••••.com
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-2 text-slate-500 filter blur-[3px]">
-                             <Globe className="w-3.5 h-3.5" /> www.••••••••••.com
-                         </div>
-                         <div className="absolute inset-0 flex items-center justify-start pl-8">
-                            <span className="bg-slate-800 text-amber-500 text-[10px] px-2 py-0.5 rounded border border-amber-500/30 font-bold flex items-center gap-1 shadow-sm">
-                               <Lock className="w-3 h-3" /> Details Locked
-                            </span>
+                         <div className="absolute inset-0 flex items-center justify-start bg-slate-900/60 blur-none grayscale-0">
+                            <span className="bg-slate-800 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/20">LOCKED</span>
                          </div>
                       </div>
                    )}
                 </div>
               </div>
             ))}
-            
-            {/* PAYWALL AT BOTTOM OF LIST (If Not Pro) */}
-            {!isProMode && (
-               <div className="p-6 bg-slate-900 border-t border-slate-700">
-                  <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-amber-500/30 rounded-xl p-6 relative overflow-hidden text-center shadow-lg">
-                     <div className="absolute top-0 right-0 p-4 opacity-5">
-                        <Lock className="w-24 h-24 text-white" />
-                     </div>
-                     
-                     <h3 className="text-lg font-bold text-white mb-2">Unlock Contact Details</h3>
-                     <p className="text-slate-400 text-sm mb-4">
-                        Get direct phone numbers, email addresses, and websites for all <strong className="text-white">{result.topBuyers.length} Verified Buyers</strong> above.
-                     </p>
-                     
-                     <div className="flex flex-col gap-3">
-                        <button 
-                           onClick={openStripe}
-                           className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-900 font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.01]"
-                        >
-                           <CreditCard className="w-4 h-4" />
-                           Reveal All Contacts - $9.99
-                        </button>
-
-                        <div className="bg-slate-900/50 rounded-lg p-2 border border-slate-700/50 flex gap-2 items-center">
-                           <KeyRound className="w-4 h-4 text-slate-500 ml-2" />
-                           <form onSubmit={handleUnlockAttempt} className="flex-1 flex gap-2">
-                              <input 
-                                type="text" 
-                                value={accessCode}
-                                onChange={(e) => setAccessCode(e.target.value)}
-                                placeholder="Have a code?"
-                                className="w-full bg-transparent border-none text-sm text-white focus:ring-0 outline-none placeholder-slate-600 uppercase"
-                              />
-                              <button 
-                                type="submit"
-                                className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors"
-                              >
-                                Unlock
-                              </button>
-                           </form>
-                        </div>
-                        {codeError && <p className="text-xs text-red-400">{codeError}</p>}
-                     </div>
-                  </div>
-               </div>
-            )}
           </div>
-        </div>
 
-        {/* 3. Outreach Cadence (Blurred if Free) */}
-        <div className={`bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl flex flex-col h-full ${!isProMode ? 'filter blur-sm opacity-50 pointer-events-none' : ''}`}>
-          <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-amber-500" />
-              <h3 className="font-bold text-slate-200">Phase 3: Sales Cadence</h3>
+          {!isProMode && (
+            <div className="p-4 bg-slate-900/95 border-t border-slate-700">
+               <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-xl border border-amber-500/30 text-center">
+                  <h4 className="text-sm font-bold text-white mb-2">Unlock Decision Maker Data</h4>
+                  <p className="text-[11px] text-slate-400 mb-4">Reveal direct phone lines and verified emails for these matches.</p>
+                  <button onClick={() => window.open(STRIPE_PAYMENT_LINK, '_blank')} className="w-full py-2.5 bg-amber-500 text-slate-900 font-black rounded-lg text-xs mb-3 flex items-center justify-center gap-2">
+                    <CreditCard className="w-4 h-4" /> PAY $9.99 TO UNLOCK
+                  </button>
+                  <form onSubmit={handleUnlockAttempt} className="flex gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-700">
+                    <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value)} placeholder="ENTER ACCESS CODE" className="flex-1 bg-transparent border-none text-[10px] text-white focus:ring-0 uppercase font-mono tracking-widest" />
+                    <button type="submit" className="text-[10px] bg-amber-500/20 text-amber-500 px-3 py-1 rounded font-bold border border-amber-500/20">OK</button>
+                  </form>
+                  {codeError && <p className="text-[10px] text-red-500 mt-2">{codeError}</p>}
+               </div>
             </div>
-          </div>
-          
-          {/* Tabs */}
-          <div className="flex border-b border-slate-700 overflow-x-auto">
-            <button 
-              onClick={() => setActiveTab('step1')}
-              className={`flex-1 min-w-[60px] py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'step1' ? 'border-amber-500 text-white bg-amber-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-            >
-              Day 0
-            </button>
-            <button 
-              onClick={() => setActiveTab('step2')}
-              className={`flex-1 min-w-[60px] py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'step2' ? 'border-amber-500 text-white bg-amber-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-            >
-              Day 3
-            </button>
-            <button 
-              onClick={() => setActiveTab('step3')}
-              className={`flex-1 min-w-[60px] py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'step3' ? 'border-amber-500 text-white bg-amber-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-            >
-              SMS
-            </button>
-            <button 
-              onClick={() => setActiveTab('step4')}
-              className={`flex-1 min-w-[60px] py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'step4' ? 'border-amber-500 text-white bg-amber-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-            >
-              Close
-            </button>
-            <button 
-              onClick={() => setActiveTab('phone')}
-              className={`flex-1 min-w-[60px] py-3 text-xs font-medium text-center border-b-2 transition-colors flex items-center justify-center gap-1 ${activeTab === 'phone' ? 'border-amber-500 text-white bg-amber-500/5' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-            >
-              <PhoneCall className="w-3 h-3" /> Call
-            </button>
-          </div>
+          )}
+        </div>
 
-          {/* Content */}
-          <div className="p-5 flex-1 bg-slate-900/30 font-mono text-sm relative group min-h-[200px]">
-            <button 
-              onClick={handleCopy}
-              className="absolute top-2 right-2 p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              title="Copy to clipboard"
-            >
-              <Copy className="w-4 h-4" />
-            </button>
-
-            {activeTab === 'step3' ? (
-              <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 max-w-xs mx-auto mt-4">
-                 <div className="flex items-center gap-2 mb-2 text-xs text-slate-400">
-                    <MessageSquare className="w-3 h-3" /> SMS Preview
+        <div className={`bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl flex flex-col h-[600px] transition-all duration-700 ${!isProMode ? 'filter blur-md opacity-30 select-none pointer-events-none' : ''}`}>
+           <div className="p-4 bg-slate-900 flex items-center justify-between">
+              <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-amber-500" /><h3 className="font-bold text-xs uppercase tracking-widest">Outreach Protocols</h3></div>
+           </div>
+           <div className="flex bg-slate-900/50 border-b border-slate-700">
+              {['step1', 'step2', 'step3', 'step4', 'phone'].map(tab => (
+                 <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-tighter transition-all ${activeTab === tab ? 'text-amber-500 bg-amber-500/10 border-b-2 border-amber-500' : 'text-slate-500'}`}>{tab}</button>
+              ))}
+           </div>
+           <div className="p-6 flex-1 bg-slate-900/30 overflow-y-auto custom-scrollbar font-mono text-xs text-slate-300 leading-relaxed group relative">
+              <button onClick={handleCopy} className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded opacity-0 group-hover:opacity-100 transition-all border border-slate-600"><Copy className="w-4 h-4" /></button>
+              {activeTab === 'phone' ? (
+                 <div className="space-y-4">
+                    <div className="bg-slate-800 p-3 rounded border border-slate-700"><span className="text-slate-500 block mb-1">OPENER</span> {result.cadence.phone_script?.opener}</div>
+                    <div className="bg-amber-500/5 p-3 rounded border border-amber-500/20"><span className="text-amber-500 block mb-1">PITCH</span> {result.cadence.phone_script?.pitch}</div>
                  </div>
-                 <p className="text-white whitespace-pre-wrap">{result?.cadence?.step3_sms || 'No SMS content generated.'}</p>
-              </div>
-            ) : activeTab === 'phone' ? (
-               <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                 <div className="bg-slate-800/50 p-3 rounded border border-slate-700/50">
-                    <span className="text-slate-500 text-xs uppercase font-bold block mb-1">Opener</span>
-                    <p className="text-slate-300">{result?.cadence?.phone_script?.opener || "Loading..."}</p>
+              ) : (
+                 <div className="whitespace-pre-wrap">
+                    <div className="mb-4 pb-4 border-b border-slate-800"><span className="text-slate-500">Subject:</span> {activeTab === 'step3' ? "SMS" : emailContent?.subject}</div>
+                    {activeTab === 'step3' ? result.cadence.step3_sms : emailContent?.body}
                  </div>
-                 <div className="bg-amber-500/10 p-3 rounded border border-amber-500/20">
-                    <span className="text-amber-500 text-xs uppercase font-bold block mb-1">The Pitch</span>
-                    <p className="text-white font-medium">{result?.cadence?.phone_script?.pitch || "Loading..."}</p>
-                 </div>
-                 <div className="bg-slate-800/50 p-3 rounded border border-slate-700/50">
-                    <span className="text-slate-500 text-xs uppercase font-bold block mb-1">Objection Handling</span>
-                    <p className="text-slate-300 italic">"{result?.cadence?.phone_script?.objection_handling || "Loading..."}"</p>
-                 </div>
-                 <div className="bg-slate-800/50 p-3 rounded border border-slate-700/50">
-                    <span className="text-slate-500 text-xs uppercase font-bold block mb-1">The Close</span>
-                    <p className="text-slate-300">{result?.cadence?.phone_script?.closing || "Loading..."}</p>
-                 </div>
-               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="border-b border-slate-700/50 pb-2">
-                  <span className="text-slate-500">Subject: </span>
-                  <span className="text-white">{emailContent?.subject ? emailContent.subject : <span className="text-slate-600 italic">No subject generated</span>}</span>
-                </div>
-                <div className="text-slate-300 whitespace-pre-wrap leading-relaxed">{emailContent?.body ? emailContent.body : <span className="text-slate-600 italic">No content generated for this step.</span>}</div>
-              </div>
-            )}
-          </div>
+              )}
+           </div>
         </div>
       </div>
 
-      {/* 4. Logistics & Freight (Updated) */}
-      {result?.logistics && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex items-center gap-2">
-            <Truck className="w-5 h-5 text-indigo-400" />
-            <h3 className="font-bold text-slate-200">Phase 4: Logistics & Freight Estimator</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-             {/* Detected Specs (Phase 0) */}
-             {result.logistics.detectedSpecs && (
-               <div className="md:col-span-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-amber-500" />
-                    <span className="text-slate-400">AI-Researched Specs:</span>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700">
-                      <span className="text-slate-500 text-xs uppercase mr-2">Weight</span>
-                      <span className="text-white font-mono">{result.logistics.detectedSpecs.weight}</span>
-                    </div>
-                    <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700">
-                      <span className="text-slate-500 text-xs uppercase mr-2">Dims</span>
-                      <span className="text-white font-mono">{result.logistics.detectedSpecs.dimensions}</span>
-                    </div>
-                  </div>
-               </div>
-             )}
-
-             {/* Cost Estimate */}
-             <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 flex flex-col justify-center items-center text-center">
-                <div className="bg-indigo-500/20 p-3 rounded-full mb-3">
-                   <Scale className="w-6 h-6 text-indigo-400" />
-                </div>
-                <div className="text-xs text-indigo-300 uppercase font-bold tracking-wide mb-1">Estimated Shipping</div>
-                <div className="text-xl font-bold text-white mb-2">{result.logistics.estimatedRange || "Pending..."}</div>
-                <div className="text-xs text-slate-400 bg-slate-900/50 px-2 py-1 rounded">
-                   Rec: {result.logistics.transportType || "Standard"}
-                </div>
-             </div>
-
-             {/* Questions Checklist */}
-             <div className="md:col-span-1">
-                <div className="flex items-center gap-2 mb-3 text-slate-300 font-medium">
-                   <ClipboardList className="w-4 h-4 text-slate-500" />
-                   <span>Critical Logistics Questions</span>
-                </div>
-                <ul className="space-y-2">
-                   {(result.logistics.criticalQuestions || []).map((q, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
-                         <div className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></div>
-                         {q}
-                      </li>
-                   ))}
-                   {(!result.logistics.criticalQuestions || result.logistics.criticalQuestions.length === 0) && (
-                      <li className="text-sm text-slate-500 italic">No specific questions generated.</li>
-                   )}
-                </ul>
-             </div>
-
-             {/* Advice */}
-             <div className="md:col-span-1">
-                <div className="flex items-center gap-2 mb-3 text-slate-300 font-medium">
-                   <Container className="w-4 h-4 text-slate-500" />
-                   <span>Handling Advice</span>
-                </div>
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50 text-sm text-slate-400 leading-relaxed italic">
-                   "{result.logistics.advice || "No specific advice provided."}"
-                </div>
-             </div>
-
-             {/* Action: Freight Quotes & Brokers (New) */}
-             <div className="md:col-span-3 border-t border-slate-700/50 pt-6 mt-2">
-               <h4 className="text-indigo-400 font-bold mb-4 flex items-center gap-2">
-                 <Send className="w-4 h-4" />
-                 Action: Request Live Freight Quotes
-               </h4>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 
-                 {/* Left: Recommended Brokers */}
-                 <div>
-                    <h5 className="text-sm font-semibold text-slate-300 mb-3">Top 5 Recommended Freight Brokers</h5>
-                    <div className="space-y-3">
-                       {(result.logistics.topFreightBrokers || []).map((broker, i) => (
-                          <div key={i} className="bg-slate-900/40 p-3 rounded border border-slate-700/50 flex flex-col gap-1">
-                             <div className="flex justify-between items-start">
-                                <span className="font-bold text-white text-sm">{broker.name}</span>
-                                <span className="text-xs text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">{broker.location}</span>
-                             </div>
-                             <div className="text-xs text-slate-400 mt-1">
-                                <span className="text-indigo-400">Contact: </span>{broker.contact}
-                             </div>
-                             {broker.website && (
-                               <a href={broker.website} target="_blank" rel="noreferrer" className="text-xs text-slate-500 hover:text-indigo-400 truncate mt-0.5 block">
-                                  {broker.website}
-                               </a>
-                             )}
-                          </div>
-                       ))}
-                       {(!result.logistics.topFreightBrokers || result.logistics.topFreightBrokers.length === 0) && (
-                         <div className="text-sm text-slate-500 italic">No brokers found.</div>
-                       )}
-                    </div>
-                 </div>
-
-                 {/* Right: Quote Template */}
-                 <div>
-                    <div className="flex items-center justify-between mb-2">
-                       <h5 className="text-sm font-semibold text-slate-300">Quote Request</h5>
-                       <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
-                          <button 
-                             onClick={() => setFreightTab('email')}
-                             className={`px-3 py-1 text-xs font-medium rounded transition-colors ${freightTab === 'email' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                          >
-                            Email Draft
-                          </button>
-                          <button 
-                             onClick={() => setFreightTab('call')}
-                             className={`px-3 py-1 text-xs font-medium rounded transition-colors ${freightTab === 'call' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                          >
-                            Phone Script
-                          </button>
-                       </div>
-                       <div className="flex gap-2">
-                           {freightTab === 'email' && (
-                            <button 
-                              onClick={handleDraftEmail}
-                              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-                              title="Open in default mail app"
-                            >
-                              <Mail className="w-3 h-3" /> Draft
-                            </button>
-                           )}
-                           <button 
-                             onClick={handleCopyQuote} 
-                             className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-                           >
-                             <Copy className="w-3 h-3" /> Copy
-                           </button>
-                       </div>
-                    </div>
-                    
-                    {freightTab === 'email' ? (
-                        result.logistics.freightQuoteEmail ? (
-                           <div className="bg-slate-900 border border-slate-700 p-3 rounded font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap h-[300px] overflow-y-auto custom-scrollbar group relative">
-                              <div className="mb-2 pb-2 border-b border-slate-800">
-                                 <span className="text-slate-500">Subject:</span> {result.logistics.freightQuoteEmail.subject}
-                              </div>
-                              {result.logistics.freightQuoteEmail.body}
-                           </div>
-                        ) : (
-                           <div className="bg-slate-900 border border-slate-700 p-8 rounded text-center text-slate-500 text-sm h-[300px] flex items-center justify-center">
-                              Email template pending...
-                           </div>
-                        )
-                    ) : (
-                        <div className="bg-slate-900 border border-slate-700 p-4 rounded h-[300px] overflow-y-auto custom-scrollbar">
-                           <div className="flex items-center gap-2 mb-3 text-indigo-400 text-xs font-bold uppercase tracking-wide">
-                              <PhoneCall className="w-3 h-3" /> Broker Call Script
-                           </div>
-                           <p className="font-mono text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-                              {result.logistics.freightCallScript || "Script pending..."}
-                           </p>
-                           <p className="text-xs text-slate-500 mt-4 italic border-t border-slate-800 pt-2">
-                              Tip: Be ready to provide specific dates and zip codes immediately.
-                           </p>
-                        </div>
-                    )}
-                 </div>
-               </div>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEW: Ask SurplusAI Consultant Chat */}
       <ConsultantChat result={result} />
-      
-      {/* Summary Footer */}
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex items-start gap-3">
-        <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
-        <div>
-           <p className="text-sm font-semibold text-white">Execution Summary</p>
-           <p className="text-sm text-slate-400">{result?.summary || "Analysis complete."}</p>
-        </div>
-      </div>
     </div>
   );
 };
