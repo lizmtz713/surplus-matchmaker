@@ -102,7 +102,7 @@ export const matchItemToBuyer = async (
   logistics: any,
   referenceUrl: string
 ): Promise<MatchResult> => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY;
   if (!apiKey) throw new Error("API Key is missing from environment.");
 
   const ai = new GoogleGenAI({ apiKey });
@@ -138,7 +138,7 @@ export const askSurplusAI = async (
   history: ChatMessage[],
   question: string
 ): Promise<string> => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY;
   if (!apiKey) return "API Key missing.";
 
   const ai = new GoogleGenAI({ apiKey });
